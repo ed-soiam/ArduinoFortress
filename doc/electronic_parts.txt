@@ -4,3 +4,4 @@ arduino mega2560 			1
 SIM900A module				1
 Nero Electronics 8765DIN		1
 Voltage Sensor F85(Resist divider by 5)	1
+SI7021 Temperature sensor		1+

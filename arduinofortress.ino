@@ -8,28 +8,30 @@ void led_dalay_proc();
 NetroMessage * msg;
 VoltageSensor vs(0);
 GSMModule gsm(Serial1);
-SHModem sh(Serial2);
+SHModem sh(Serial3);
 
 void setup() 
 {
   pinMode(13, OUTPUT);
   Serial.begin(115200);
   gsm.begin(115200);
-  msg = NetroMessage::createStd(0,1,1,1);
+  sh.begin(115200);
+  msg = NetroMessage::createStd(0x1220,0,0,0);
   delay(20000); 
-  gsm.sendSMS("","hello");
+  //gsm.sendSMS("","hello");
 }
 bool ok = false;
 void loop() 
 { 
   led_dalay_proc();                
-  vs.proc();
-  gsm.proc(); 
+  //vs.proc();
+  //gsm.proc(); 
   sh.proc();
-  if (gsm.isRegistered())
+  sh.sendCommand(*msg,SHModem::WAIT_ANSWER_PARAM,0);
+  /*if (gsm.isRegistered())
   {
       
-  }
+  }*/
 }
 
 

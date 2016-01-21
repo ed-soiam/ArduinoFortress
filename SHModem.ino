@@ -7,10 +7,23 @@ SHModem::SHModem(HardwareSerial &serial) :  _serial(&serial)
   _error = false;
 }
 
+void SHModem::begin(unsigned long baud) 
+{
+  _serial -> begin(baud);
+}
+
 void SHModem::proc()
 {
-  Serial.print("SHModem proc()\n]r");
-  //if (isFree())
+  unsigned char data_byte;
+  //Serial.print("SHModem proc()\n\r");
+  if (_serial->available())
+    Serial.print("SH in:");
+  while (_serial->available())
+  {
+    data_byte = (unsigned char)_serial->read();
+    Serial.print(data_byte,HEX);
+  }
+  Serial.print("\n\r");
 }
 
 
@@ -26,17 +39,23 @@ bool SHModem::sendCommand(const NetroMessage & msg,WAIT_ANSWER_T answer_machine,
   if (_msg)
     delete _msg;
   _msg = new NetroMessage(msg);//create inner message object
-  
+  Serial.print("SH OUT:");
   //stuffing data and send by one after other bytes
   unsigned char * buf = _msg -> buffer();
   for (unsigned char r_pointer = 0; r_pointer < _msg -> size(); r_pointer++)
   {
     while (!_serial -> availableForWrite());
     if ((buf[r_pointer] == INTERFACE_START_DATA && r_pointer) || buf[r_pointer] == INTERFACE_STAF_DATA)
+    {
+      Serial.print(INTERFACE_STAF_DATA,HEX);
       _serial -> write(INTERFACE_STAF_DATA);
-    while (!_serial -> availableForWrite());
+      while (!_serial -> availableForWrite());
+    }
+    Serial.print(buf[r_pointer],HEX); 
     _serial -> write(buf[r_pointer]);
+    
   }
+  Serial.print("\n\r"); 
   return true;
 }
 

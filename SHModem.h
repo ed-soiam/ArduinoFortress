@@ -11,6 +11,7 @@ public:
     
   } WAIT_ANSWER_T;
   SHModem(HardwareSerial &serial);
+  void begin(unsigned long baud); 
   // Must be called frequently to check incoming data
   void proc();
   //is port free of transaction

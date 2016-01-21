@@ -16,16 +16,20 @@ void setup()
   Serial.begin(115200);
   gsm.begin(115200);
   msg = NetroMessage::createStd(0,1,1,1);
+  delay(20000); 
+  gsm.sendSMS("","hello");
 }
-
+bool ok = false;
 void loop() 
-{
+{ 
   led_dalay_proc();                
   vs.proc();
   gsm.proc(); 
   sh.proc();
-  if (gsm.isModemReady())
-    Serial.print("gsm is attached\n\r");
+  if (gsm.isRegistered())
+  {
+      
+  }
 }
 
 

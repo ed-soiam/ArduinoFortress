@@ -45,8 +45,8 @@ void GSMModule::send_P(const char *cmd) {
   // Cleanup serial buffer
   while (_serial->available())
     recv();
-  Serial.print((__FlashStringHelper *)cmd);
-  Serial.write('\r');
+  Serial.println((__FlashStringHelper *)cmd);
+  //Serial.write('\r');
   _serial->print((__FlashStringHelper *)cmd);
   _serial->write('\r');
 
@@ -182,5 +182,38 @@ boolean GSMModule::getIMEI(char *imei) {
   }
   imei[len] = 0;
   return true;
+}
+
+
+bool GSMModule::sendSMS(const String & number, const String & text)
+{
+  String sms_cmd;
+  bool ok = false;
+  //switch to text sms mode
+  for (int i = 0; i < 2 && !ok; i++)
+    ok = sendRecvUntil_P(G("AT+CMGF=1"), G("OK"));
+  if (!ok)
+    return false;
+  //set sms encoding
+  ok = false;
+  for (int i = 0; i < 2 && !ok; i++)
+    ok = sendRecvUntil_P(G("AT+CSCS= \"GSM\""), G("OK"));
+  if (!ok)
+    return false;
+  //fill phone number 
+  ok = false;
+  sms_cmd = "AT+CMGS=\"" + number + "\"\r\n";
+  for (int i = 0; i < 2 && !ok; i++)
+    ok = sendRecvUntil_P(sms_cmd.c_str(), G(">"));    
+  if (!ok)
+    return false;
+  //set sms text 
+  ok = false;
+  setTimeout(5000,0);
+  sms_cmd = text + "\x1a";
+  ok = sendRecvUntil_P(sms_cmd.c_str(), G("OK"));  
+  setTimeout(1000,50); 
+  //todo: if not ok, do escape from message mode 
+  return ok;
 }
 

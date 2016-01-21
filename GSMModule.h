@@ -98,6 +98,7 @@ public:
 	boolean isModemReady();
 	boolean isRegistered();
 	boolean isAttached();
+  bool sendSMS(const String & number, const String & text);
 	boolean getIMEI(char *buf);
 
 	inline HardwareSerial &serial() { return *_serial; }

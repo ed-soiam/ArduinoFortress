@@ -1,4 +1,6 @@
+#include "defs.h"
 #include "SHModem.h"
+
 SHModem::SHModem(HardwareSerial &serial) :  _serial(&serial)
 {
   _msg = 0;//pointer to NULL message
@@ -72,13 +74,15 @@ void SHModem::proc()
     {
             _packages++;
             parseRXCommand();
-            Serial.print("SH in: ");
+#ifdef SH_TRANSPORT_DEBUG
+            Serial.print("SH IN: ");
             for (unsigned char i = 0; i < _rcv_byte_num; i++)
             {
               Serial.print(_rcv_buf[i],HEX);
               Serial.print(" ");
             }
             Serial.print("\n\r");
+#endif
             clearRX();
     } 
   }
@@ -110,7 +114,9 @@ bool SHModem::sendCommand(const NetroMessage & msg, unsigned short timeot_ms)
   if (_msg)
     delete _msg;
   _msg = new NetroMessage(msg);//create inner message object
+#ifdef SH_TRANSPORT_DEBUG
   Serial.print("SH OUT:");
+#endif
   //stuffing data and send by one after other bytes
   unsigned char * buf = _msg -> buffer();
   for (unsigned char r_pointer = 0; r_pointer < _msg -> size(); r_pointer++)
@@ -118,12 +124,16 @@ bool SHModem::sendCommand(const NetroMessage & msg, unsigned short timeot_ms)
     while (!_serial -> availableForWrite());
     if ((buf[r_pointer] == INTERFACE_START_DATA && r_pointer) || buf[r_pointer] == INTERFACE_STAF_DATA)
     {
+#ifdef SH_TRANSPORT_DEBUG
       Serial.print(INTERFACE_STAF_DATA,HEX);
+#endif
       _serial -> write(INTERFACE_STAF_DATA);
       while (!_serial -> availableForWrite());
     }
+#ifdef SH_TRANSPORT_DEBUG
     Serial.print(buf[r_pointer],HEX);
     Serial.print(" "); 
+#endif
     _serial -> write(buf[r_pointer]);
     
   }
@@ -132,8 +142,105 @@ bool SHModem::sendCommand(const NetroMessage & msg, unsigned short timeot_ms)
 }
 
 
+typedef enum 
+{
+  RX_PARSER_STD_ANSWER,
+  RX_PARSER_STD_REQUEST
+} RX_PARSER_ACTION;
+
+struct _cmd_parse
+{
+  unsigned short out_cmd;//out command
+  bool ext;             //out command is ext?
+  RX_PARSER_ACTION action;//proposed action
+};
+
+const struct _cmd_parse cmd_parse[] = {
+                              {NetroMessage::INTERFACE_CONTROL_MODEM_CMD | (((unsigned short)NetroMessage::INTERFACE_MODEM_SET_MODE_CMD) << 8), false, RX_PARSER_STD_ANSWER},
+                              {NetroMessage::INTERFACE_CONTROL_MODEM_CMD | (((unsigned short)NetroMessage::INTERFACE_MODEM_SAVE_DEV_ID_CMD) << 8), false, RX_PARSER_STD_ANSWER},
+                              {NetroMessage::INTERFACE_CONTROL_MODEM_CMD | (((unsigned short)NetroMessage::INTERFACE_MODEM_DELETE_DEV_ID_CMD) << 8), false, RX_PARSER_STD_ANSWER},
+                              {NetroMessage::INTERFACE_REQUEST_CMD | (((unsigned short)NetroMessage::INTERFACE_STD_PARAM_MODEMID) << 8), false, RX_PARSER_STD_REQUEST},
+                              {NetroMessage::INTERFACE_REQUEST_CMD | (((unsigned short)NetroMessage::INTERFACE_STD_PARAM_VERSION) << 8), false, RX_PARSER_STD_REQUEST}
+                            };
+
 void SHModem::parseRXCommand()
 {
+  NetroMessage * tmpMessage = NetroMessage::createFromBuffer(_rcv_buf,_rcv_byte_num);
+  if (!tmpMessage)
+    return;
+    
+  //if message from sensor
+  if (tmpMessage -> isExt() && tmpMessage -> command() == NetroMessage::INTERFACE_RESULT_BUVO_CMD)
+  {
+      //todo: parse sensor command
+      delete tmpMessage;
+      return;
+  }
   
+  //if we are not waitng for answer, then drop it
+  if (isFree())
+  {
+    delete tmpMessage;
+    return;
+  }
+    
+  //parser
+  RX_PARSER_ACTION parser =  RX_PARSER_STD_ANSWER;//default parser  
+  for (int i = 0; i < sizeof(cmd_parse) / sizeof(struct _cmd_parse); i++)
+    if (_msg -> isExt() == cmd_parse[i].ext && _msg -> command() == cmd_parse[i].out_cmd)
+    {
+      parser = cmd_parse[i].action;
+      break;
+    }
+    
+  switch (parser)
+  {
+  case RX_PARSER_STD_ANSWER:
+    if ((tmpMessage -> command() == NetroMessage::INTERFACE_RESULT_STATUS_CMD && tmpMessage -> isExt()) || 
+        (tmpMessage -> command() == (NetroMessage::INTERFACE_ANSWER_CMD | (((unsigned short)NetroMessage::INTERFACE_STD_PARAM_RESULT) << 8)) && !tmpMessage -> isExt()))
+    {
+      if (tmpMessage -> stdData() == NetroMessage::INTERFACE_RESULT_OK_CONST)
+      {
+        _free = true;
+        _error = false;
+#ifdef SH_TRANSPORT_DEBUG
+        Serial.println("SH: correct standard answer");
+#endif
+        break;
+      }
+
+      /*if (tmpMessage -> stdData() == NetroMessage::INTERFACE_RESULT_PROGRESS_CONST)
+      {
+        _free = true;
+        _error = false;
+        //ask progress again
+        NetroMessage * get_stat_msg = NetroMessage::createrStd();
+        sendCommand(*get_stat_msg, 500);
+        delete get_stat_msg;
+        return;
+      }*/
+    }
+#ifdef SH_TRANSPORT_DEBUG
+    Serial.println("SH: Incorrect standard answer");
+#endif
+    break;
+  case RX_PARSER_STD_REQUEST:
+    if (!tmpMessage -> isExt() && (tmpMessage -> command() & 0xff00) == (_msg -> command() & 0xff00) && (tmpMessage -> command() & 0xff) == NetroMessage::INTERFACE_ANSWER_CMD)
+    {
+      _free = true;
+      _error = false;
+#ifdef SH_TRANSPORT_DEBUG
+    Serial.println("SH: correct request answer");
+#endif
+      break;
+    }
+#ifdef SH_TRANSPORT_DEBUG
+    Serial.println("SH: Incorrect request answer");
+#endif
+    break;
+  default: 
+    break;  
+  }
+  delete tmpMessage;
 }
 

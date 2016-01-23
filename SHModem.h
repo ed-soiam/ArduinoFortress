@@ -14,8 +14,9 @@ public:
   bool isError() const {return _error;}
   //send command and wait for specific type of answer from modem
   //returns false if port is busy or empty message
-  bool sendCommand(const NetroMessage & msg, unsigned short timeot_ms = 100);
-  
+  bool sendCommand(const NetroMessage & msg, unsigned short timeot_ms = 200);
+  unsigned int lastSensorId() const{return 0;} 
+
 private:
   void clearRX();
   //logic modem machine

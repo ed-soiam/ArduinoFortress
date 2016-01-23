@@ -84,6 +84,7 @@ public:
 
   //парметры для установки и запроса в стандартных командах
   typedef enum {
+      INTERFACE_STD_PARAM_RESULT = 15,
       INTERFACE_STD_PARAM_FREESPACE = 17,//подкоманда запроса свободного места в модеме
       INTERFACE_STD_PARAM_VERSION = 18,//подкоманда запроса версии ПО модема
       INTERFACE_STD_PARAM_LASTSAVED = 19, //запрос номера в таблице сохраненного устройства в ежиме инициализации модема
@@ -115,21 +116,34 @@ public:
 	virtual ~NetroMessage();
 	static NetroMessage * createStd(unsigned short cmd, unsigned short group, unsigned short data, unsigned short flags);
 	static NetroMessage * createExt(unsigned short cmd, unsigned short flags, unsigned char * pBuf, unsigned char bufSize);
+ //can return 0 if bad buffer,crc, or format presented
+ static NetroMessage * createFromBuffer(unsigned char * pBuf, unsigned char bufSize);
   NetroMessage & operator=(const NetroMessage & msg);
 
   //get command buffer
 	unsigned char * buffer() const;
 
- //get command buffer size
+  //get command buffer size
 	unsigned char size() const;
 
- //is command extendeded
-  //bool isExt()const;
+  //is command extendeded
+  bool isExt()const;
 
   //get command value
-  //unsigned short command() const;
+  unsigned short command() const;
 
-  
+  //get flags value
+  unsigned short flags() const;
+
+  //get group value
+  unsigned short group() const;
+
+  //get standard data value
+  unsigned short stdData() const;
+
+  //get extended data in pBuf with length = *bufSize
+  //return actual data length in *bufSize
+  void extData(unsigned char * pBuf, unsigned char * bufSize) const;
     
 private:
 #pragma pack(push, 1)

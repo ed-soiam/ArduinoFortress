@@ -4,7 +4,6 @@
 #include "GSMModule.h"
 #include "SHModem.h"
 
-void led_dalay_proc();
 NetroMessage * msg;
 VoltageSensor vs(0);
 GSMModule gsm(Serial1);
@@ -23,28 +22,18 @@ void setup()
 unsigned long next_cmd_time = 0;
 void loop() 
 { 
-  led_dalay_proc();                
   //vs.proc();
   //gsm.proc(); 
   sh.proc();
   if (sh.isFree() && next_cmd_time < millis())
   {
-    sh.sendCommand(*msg,0);
-    next_cmd_time = millis()  + 2000;
+    sh.sendCommand(*msg);
+    next_cmd_time = millis()  + 5000;
   }
-  /*if (gsm.isRegistered())
-  {
-      
-  }*/
 }
 
-
-void led_dalay_proc()
+void setupSensor()
 {
-  // visible watchdog :)
-  digitalWrite(13, HIGH);       
-  delay(1000);                  
-  digitalWrite(13, LOW);        
-  delay(1000);
+
 }
 

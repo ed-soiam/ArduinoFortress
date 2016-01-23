@@ -66,10 +66,49 @@ NetroMessage * NetroMessage::createExt(unsigned short cmd, unsigned short flags,
   return  msg;
 }
 
+
+NetroMessage * NetroMessage::createFromBuffer(unsigned char * pBuf, unsigned char bufSize)
+{
+  unsigned short crc,tmpCrc;
+  //parsing buffer, check crc, header, minimal lengths and so on
+  if (bufSize < INTERFACE_SIZE_OFFSET + 1 + 2)//head+crc
+    return 0;
+  //check total length
+  if (bufSize != INTERFACE_SIZE_OFFSET + 1 + ((STD_CMD_T *)pBuf) -> head.size + 2)
+    return 0;
+  //check correct crc
+  tmpCrc = calcCrc((unsigned char *)&(((STD_CMD_T *)pBuf) -> head.address), bufSize - 3);
+  memcpy(&crc,pBuf + bufSize - sizeof(crc),sizeof(crc));
+  if (crc != tmpCrc)
+    return 0;
+    
+  switch (((STD_CMD_T *)pBuf) -> head.protocol)
+  {
+  case INTERFACE_PROTOCOL_STD_DATA:
+    if (memcmp(pBuf,std_cmd_head,sizeof(std_cmd_head)))
+      return 0;
+    break;
+  case INTERFACE_PROTOCOL_EXT_DATA:
+    if (memcmp(pBuf,ext_cmd_head,sizeof(ext_cmd_head)))
+        return 0;
+    break;
+  default:
+    return 0;
+  }
+
+  NetroMessage * msg = new NetroMessage();
+  msg -> _size = bufSize;
+  msg -> _buf = new unsigned char[msg -> _size];
+  memcpy(msg -> _buf, pBuf, msg -> _size);
+  return msg;
+}
+
+
 unsigned char * NetroMessage::buffer() const
 {
   return _buf;
 }
+
 
 unsigned char NetroMessage::size() const
 {
@@ -77,7 +116,91 @@ unsigned char NetroMessage::size() const
 }
 
 
-//подсчет crc массива data длиной len
+bool NetroMessage::isExt()const
+{
+  return ((STD_CMD_T *)_buf) -> head.protocol == INTERFACE_PROTOCOL_STD_DATA ? false : true;
+}
+
+
+unsigned short NetroMessage::command() const
+{
+  switch (((STD_CMD_T *)_buf) -> head.protocol)
+  {
+  case INTERFACE_PROTOCOL_STD_DATA:
+    return ((STD_CMD_T *)_buf) -> command;
+  case INTERFACE_PROTOCOL_EXT_DATA:
+    return ((EXT_CMD_T *)_buf) -> command;
+  default:
+    return 0;
+  }
+}
+
+
+unsigned short NetroMessage::flags() const
+{
+  switch (((STD_CMD_T *)_buf) -> head.protocol)
+  {
+  case INTERFACE_PROTOCOL_STD_DATA:
+    return ((STD_CMD_T *)_buf) -> flags;
+  case INTERFACE_PROTOCOL_EXT_DATA:
+    return ((EXT_CMD_T *)_buf) -> flags;
+  default:
+    return 0;
+  }
+}
+
+
+unsigned short NetroMessage::group() const
+{
+  switch (((STD_CMD_T *)_buf) -> head.protocol)
+  {
+  case INTERFACE_PROTOCOL_STD_DATA:
+    return ((STD_CMD_T *)_buf) -> group;
+  default:
+    return 0;
+  }
+}
+
+
+unsigned short NetroMessage::stdData() const
+{
+  switch (((STD_CMD_T *)_buf) -> head.protocol)
+  {
+  case INTERFACE_PROTOCOL_STD_DATA:
+    return ((STD_CMD_T *)_buf) -> data;
+  case INTERFACE_PROTOCOL_EXT_DATA:
+  {
+    unsigned short res = 0;
+    if (((EXT_CMD_T *)_buf) -> head.size >= 6)
+      memcpy(&res,((EXT_CMD_T *)_buf) -> format.data,sizeof(res));
+    return res;
+  }    
+  default:
+    return 0;
+  }
+}
+
+
+void NetroMessage::extData(unsigned char * pBuf, unsigned char * bufSize) const
+{
+  switch (((STD_CMD_T *)_buf) -> head.protocol)
+  {
+  case INTERFACE_PROTOCOL_STD_DATA:
+    *bufSize = min(*bufSize,sizeof(((STD_CMD_T *)_buf) -> data));
+    if (*bufSize)
+      memcpy(pBuf,&((STD_CMD_T *)_buf) -> data, *bufSize);
+    return;
+  case INTERFACE_PROTOCOL_EXT_DATA:
+    *bufSize = min(*bufSize,((STD_CMD_T *)_buf) -> head.size - 6);//2-crc,2-cmd,2-flags);
+    if (*bufSize)
+      memcpy(pBuf,((EXT_CMD_T *)_buf) -> format.data, *bufSize);
+    return;
+  default:
+    return;
+  }
+}
+
+  
 unsigned short NetroMessage::calcCrc(unsigned char * data, unsigned char len)
 {
   unsigned char i;

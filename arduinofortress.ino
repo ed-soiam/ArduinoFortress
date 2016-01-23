@@ -1,22 +1,47 @@
 #include <stdlib.h>
 #include "NetroMessage.h"
-#include "VoltageSensor.h"
+#include "AnalogSensor.h"
 #include "GSMModule.h"
 #include "SHModem.h"
+#include "EEPROMManager.h"
 
 NetroMessage * msg;
-VoltageSensor vs(0);
+AnalogSensor vs(0,450,true);//11.2v low on 5v power supply
 GSMModule gsm(Serial1);
 SHModem sh(Serial3);
 
+void saveTestPhone()
+{
+  EEPROMManager::PHONE_ELEMENT_T phone;
+  memset(&phone,0,sizeof(phone));
+  const char ph[] = "+375290000000";
+  memcpy(phone.number,ph,sizeof(ph));
+  EEPROMManager::save(EEPROMManager::EEPROM_PHONE_PART,0,(unsigned char *)&phone);
+}
+
 void setup() 
 {
-  pinMode(13, OUTPUT);
   Serial.begin(115200);
+  delay(10000);
+  pinMode(13, OUTPUT);
+  //saveTestPhone();
+  //load phone settings from eeprom
+  EEPROMManager::PHONE_ELEMENT_T phone;
+  for (unsigned char i = 0; i < PHONE_NUMBER_COUNT; i++)
+  {
+    EEPROMManager::load(EEPROMManager::EEPROM_PHONE_PART,i,(unsigned char *)&phone);
+    //for (unsigned char j = 0; j < sizeof(phone.number); j++) 
+    //  Serial.write(phone.number[j]);
+    //Serial.print("\n\r") ;
+    //if (phone.number[0] != 0xff && phone.number[0] != 0x00)
+    //  gsm.setPhone(i,String(phone.number));
+  } 
+  
   gsm.begin(115200);
   sh.begin(115200);
   msg = NetroMessage::createStd(0x1220,0,0,0);
-  delay(10000); 
+  
+   
   //gsm.sendSMS("","hello");
 }
 unsigned long next_cmd_time = 0;

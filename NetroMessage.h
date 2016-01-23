@@ -116,9 +116,21 @@ public:
 	static NetroMessage * createStd(unsigned short cmd, unsigned short group, unsigned short data, unsigned short flags);
 	static NetroMessage * createExt(unsigned short cmd, unsigned short flags, unsigned char * pBuf, unsigned char bufSize);
   NetroMessage & operator=(const NetroMessage & msg);
-  
+
+  //get command buffer
 	unsigned char * buffer() const;
+
+ //get command buffer size
 	unsigned char size() const;
+
+ //is command extendeded
+  //bool isExt()const;
+
+  //get command value
+  //unsigned short command() const;
+
+  
+    
 private:
 #pragma pack(push, 1)
   typedef struct _std_cmd_header_t {

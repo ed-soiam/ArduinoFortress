@@ -3,13 +3,7 @@
 #include "NetroMessage.h"
 class SHModem {
 public:
-  typedef enum {
-    WAIT_ANSWER_NONE,
-    WAIT_ANSWER_STANDARD,
-    WAIT_ANSWER_PARAM,
-    WAIT_ANSWER_LISTEN_ID,
-    
-  } WAIT_ANSWER_T;
+
   SHModem(HardwareSerial &serial);
   void begin(unsigned long baud); 
   // Must be called frequently to check incoming data
@@ -20,14 +14,25 @@ public:
   bool isError() const {return _error;}
   //send command and wait for specific type of answer from modem
   //returns false if port is busy or empty message
-  bool sendCommand(const NetroMessage & msg,WAIT_ANSWER_T answer_machine, unsigned short timeot_ms = 100);
+  bool sendCommand(const NetroMessage & msg, unsigned short timeot_ms = 100);
+  
 private:
+  void clearRX();
+  //logic modem machine
+  void stateMachine();
+
+  void parseRXCommand();
+  
   HardwareSerial *_serial;
   NetroMessage * _msg;
   unsigned long _timeout;
-  WAIT_ANSWER_T _answer_machine;
   bool _free;
   bool _error;
-  //String s;
+  //for incoming answers and commands
+  unsigned long _packages;//rx packages after object created
+  unsigned char _rcv_buf[INTERFACE_EXT_PACKET_LENGTH];
+  bool _staff;
+  unsigned char _rcv_byte_num;
+
 };
 #endif

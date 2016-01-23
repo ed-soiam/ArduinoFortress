@@ -17,17 +17,21 @@ void setup()
   gsm.begin(115200);
   sh.begin(115200);
   msg = NetroMessage::createStd(0x1220,0,0,0);
-  delay(20000); 
+  delay(10000); 
   //gsm.sendSMS("","hello");
 }
-bool ok = false;
+unsigned long next_cmd_time = 0;
 void loop() 
 { 
   led_dalay_proc();                
   //vs.proc();
   //gsm.proc(); 
   sh.proc();
-  sh.sendCommand(*msg,SHModem::WAIT_ANSWER_PARAM,0);
+  if (sh.isFree() && next_cmd_time < millis())
+  {
+    sh.sendCommand(*msg,0);
+    next_cmd_time = millis()  + 2000;
+  }
   /*if (gsm.isRegistered())
   {
       

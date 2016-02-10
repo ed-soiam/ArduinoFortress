@@ -7,55 +7,36 @@
 #include <Client.h>
 #include <IPAddress.h>
 #include <avr/pgmspace.h>
-
-// DFRobot GPS/GSM/GPRS shield shares its GPS & GSM serial into
-// Arduino RX & TX pins (pin 0 & 1).  Only one serial can be used
-// at one time, and it is controlled via tri-state buffers.
-
-#define GSM_PIN 3 // Tri-state buffer control pin to enable GSM serial
-#define GPS_PIN 4 // Tri-state buffer control pin to enable GPS serial
-#define PWR_PIN 5
-
-// GPS can also be used with dedicated serial, but you must wired it
-// up manually. There are GPS TXA & GPS RXA soldering pad available
-// on SIM548C module.
-#define GPS_RX_PIN 8
-#define GPS_TX_PIN 9
+#include "defs.h"
 
 #define GSM_BUFFER_SIZE 64
 #define GSM_MAX_CALLBACK 3
 
-//#define ECHO_ENABLED
-#ifdef ECHO_ENABLED
-extern HardwareSerial &console;
-#endif
-
-// Workaround for http://gcc.gnu.org/bugzilla/show_bug.cgi?id=34734
+/*// Workaround for http://gcc.gnu.org/bugzilla/show_bug.cgi?id=34734
 #ifdef PROGMEM
 #undef PROGMEM
 #define PROGMEM __attribute__((section(".progmem.data")))
-#endif
+#endif*/
 
 // Arduino F() macro will create PROGMEM string of type (const __FlashStringHelper *).
 // This G() macro will cast it into (const char *) for use with C library.
 #define G(s) (const char *)F(s)
-
-enum { EXT_MODE, GSM_MODE, GPS_MODE };
 
 // Functions with name ended with _P should be provided with
 // PROGMEM value for its const char * parameter.
 class GSMModule {
 public:
 	GSMModule(HardwareSerial &serial);
+
+  void setPhone(unsigned char element, const String & phone_number);
 	void begin(unsigned long baud);
 	void end();
-
-	void powerToggle();
 
 	// Send AT command.  Don't use '\r' as command suffix.
 	void send(const char *cmd);
 	void send_P(const char *cmd);
-
+  //parse income string
+  void parse(byte * _buf, size_t size);
 	// Receive until buffer is full or timeout.
 	size_t recv();
 
@@ -91,9 +72,6 @@ public:
 
 	typedef size_t (*callback_func)(byte *buf, size_t length, void *data);
 	void setCallback_P(int slot, const char *match, callback_func func, void *data);
-
-	void serialMode(int mode);
-
 	// Modem status testing functions
 	boolean isModemReady();
 	boolean isRegistered();
@@ -105,6 +83,7 @@ public:
 
 private:
 	HardwareSerial *_serial;
+  String _phone_numbers[PHONE_NUMBER_COUNT];
 	byte _buf[GSM_BUFFER_SIZE];
 	byte _buf_eol; // dummy EOL for string safety
 	size_t _buf_size;
@@ -112,6 +91,7 @@ private:
 	unsigned long _intra_time;
 	size_t _overflow_size;
 	byte _overflow_slot;
+  bool _r_flag;//'\r' was caught in last byte
 
 	struct {
 		callback_func func;
@@ -121,6 +101,7 @@ private:
 	} _cb[GSM_MAX_CALLBACK];
 
 	void handleCallback();
+  unsigned long _rcv_timeout;
 };
 
 #endif

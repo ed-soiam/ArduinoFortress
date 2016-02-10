@@ -30,17 +30,14 @@ void setup()
   for (unsigned char i = 0; i < PHONE_NUMBER_COUNT; i++)
   {
     EEPROMManager::load(EEPROMManager::EEPROM_PHONE_PART,i,(unsigned char *)&phone);
-    //for (unsigned char j = 0; j < sizeof(phone.number); j++) 
-    //  Serial.write(phone.number[j]);
-    //Serial.print("\n\r") ;
-    //if (phone.number[0] != 0xff && phone.number[0] != 0x00)
-    //  gsm.setPhone(i,String(phone.number));
+    if (phone.number[0] != 0xff && phone.number[0] != 0x00)
+      gsm.setPhone(i,String((const char *)phone.number));
   } 
   
   gsm.begin(115200);
   sh.begin(115200);
   msg = NetroMessage::createStd(0x1220,0,0,0);
-  
+  //gsm.isAttached();
    
   //gsm.sendSMS("","hello");
 }
@@ -48,13 +45,13 @@ unsigned long next_cmd_time = 0;
 void loop() 
 { 
   //vs.proc();
-  //gsm.proc(); 
-  sh.proc();
+  gsm.proc(); 
+  /*sh.proc();
   if (sh.isFree() && next_cmd_time < millis())
   {
     sh.sendCommand(*msg);
     next_cmd_time = millis()  + 5000;
-  }
+  }*/
 }
 
 void setupSensor()

@@ -6,14 +6,24 @@ GSMModule::GSMModule(HardwareSerial &serial) :
   _intra_time(50),
   _overflow_size(0),
   _overflow_slot(0),
+  _buf_size(0),
+  _r_flag(false),
   _cb() {}
 
-void GSMModule::begin(unsigned long baud) {
-  //commented by soiam
-  //pinMode(GSM_PIN, OUTPUT);
-  //pinMode(GPS_PIN, OUTPUT);
-  //pinMode(PWR_PIN, OUTPUT);
 
+void GSMModule::setPhone(unsigned char element, const String & phone_number)
+{
+  if (element >= PHONE_NUMBER_COUNT)
+    return;
+  _phone_numbers[element] = phone_number;
+  Serial.write("GSM: register phone ");
+  Serial.write(phone_number.c_str());
+  Serial.write("\n\r");
+}
+
+
+void GSMModule::begin(unsigned long baud) 
+{
   _serial->begin(baud);
 }
 
@@ -21,16 +31,10 @@ void GSMModule::end() {
   _serial->end();
 }
 
-void GSMModule::powerToggle() {
-  digitalWrite(PWR_PIN, HIGH);
-  delay(2000);
-  digitalWrite(PWR_PIN, LOW);
-}
-
 void GSMModule::send(const char *cmd) {
   // Cleanup serial buffer
-  while (_serial->available())
-    recv();
+  //while (_serial->available())
+  //  recv();
 
   _serial->write(cmd);
   _serial->write('\r');
@@ -135,8 +139,100 @@ void GSMModule::setTimeout(long first_time, long intra_time) {
 }
 
 void GSMModule::proc() {
-  if (_serial->available())
-    recv();
+  //if (_serial->available())
+  //  recv();
+  while(_serial -> available())
+  {
+    _buf[_buf_size] = _serial -> read();
+    //ignoring start \r and \n symbols
+    if (!_buf_size && (_buf[_buf_size] == '\n' || _buf[_buf_size] == '\r'))
+      continue;
+    Serial.write(_buf[_buf_size]);
+    if (_buf[_buf_size] == '\n' && _r_flag)
+    {
+      //parse string
+      parse(_buf, _buf_size + 1);
+      _buf_size = 0;
+      _r_flag = false;
+      continue;
+    }
+    else
+      if (_buf[_buf_size] == '\r')
+        _r_flag = true;
+    _buf_size++;
+  }
+
+}
+
+typedef enum {
+  GSM_PARSER_INCOME_SMS,
+  GSM_PARSER_INCOME_RING,
+  GSM_PARSER_GET_SMS,
+  GSM_PARSER_DELETE_SMS  
+} GSM_PARSER;
+
+typedef struct _cmd_parser {
+  String cmd;
+  GSM_PARSER parser;
+} CMD_PARSER;
+#define PARSE_CMDS 2
+const CMD_PARSER parser[PARSE_CMDS] = {
+                              {"+CMTI: \"SM\",",GSM_PARSER_INCOME_SMS},
+                              {"RING",GSM_PARSER_INCOME_RING}
+};
+void GSMModule::parse(byte * _buf, size_t size)
+{
+  Serial.write("GSM IN:");
+  for (size_t i = 0; i < size; i++)
+  {
+    Serial.write(_buf[i]);
+    //Serial.print(_buf[i],HEX);
+    // Serial.print(" ");
+  }
+  //Serial.write("\n\rsize:");
+  //Serial.println(size,DEC);
+  
+  int parse_index;
+  for (parse_index = 0; parse_index < PARSE_CMDS; parse_index++)
+  {
+    //Serial.write("compare length ");
+    //Serial.println(parser[i].cmd.length(),DEC);
+      
+    int res = memcmp(parser[parse_index].cmd.c_str(),_buf,parser[parse_index].cmd.length());
+    /*if(res != 0)
+      Serial.println(res,DEC);
+    else
+      Serial.write("parse ok\r\n");*/
+    if (!res)
+      break;
+  }
+
+  if (parse_index == PARSE_CMDS)
+    return;
+            
+  switch(parser[parse_index].parser)
+  {
+  case GSM_PARSER_INCOME_SMS:
+  {
+    String sms_in = String((char *)_buf + parser[parse_index].cmd.length());
+    long sms_num = sms_in.toInt();
+    //Serial.println(sms_num,DEC);
+    if (sms_num)
+    {
+      //read sms
+      /*String cmd = "AT+CMGR=";
+      cmd.concat(sms_num);
+      send(cmd.c_str());*/
+      String cmd = "AT+CMGDA=\"DEL SENT\"";
+      send(cmd.c_str());
+    }
+    break;
+  }
+  case GSM_PARSER_INCOME_RING:
+    break;
+  default:
+    return;  
+  }
 }
 
 void GSMModule::setCallback_P(int slot, const char *match, callback_func func, void *data) {
@@ -146,10 +242,6 @@ void GSMModule::setCallback_P(int slot, const char *match, callback_func func, v
   _cb[slot].func = func;
 }
 
-void GSMModule::serialMode(int mode) {
-  digitalWrite(GSM_PIN, mode == GSM_MODE ? LOW : HIGH);
-  digitalWrite(GPS_PIN, mode == GPS_MODE ? LOW : HIGH);
-}
 
 boolean GSMModule::isModemReady() {
   boolean ready = false;

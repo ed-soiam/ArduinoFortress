@@ -8,7 +8,7 @@
 #include <IPAddress.h>
 #include <avr/pgmspace.h>
 #include "defs.h"
-
+#include "GSMTask.h"
 #define GSM_BUFFER_SIZE 64
 #define GSM_MAX_CALLBACK 3
 
@@ -35,6 +35,7 @@ public:
 	// Send AT command.  Don't use '\r' as command suffix.
 	void send(const char *cmd);
 	void send_P(const char *cmd);
+  void addTask(const GSMTask & task);
   //parse income string
   void parse(byte * _buf, size_t size);
 	// Receive until buffer is full or timeout.

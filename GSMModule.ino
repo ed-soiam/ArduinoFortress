@@ -31,11 +31,8 @@ void GSMModule::end() {
   _serial->end();
 }
 
-void GSMModule::send(const char *cmd) {
-  // Cleanup serial buffer
-  //while (_serial->available())
-  //  recv();
-
+void GSMModule::send(const char *cmd) 
+{
   _serial->write(cmd);
   _serial->write('\r');
 
@@ -45,7 +42,8 @@ void GSMModule::send(const char *cmd) {
 #endif
 }
 
-void GSMModule::send_P(const char *cmd) {
+void GSMModule::send_P(const char *cmd) 
+{
   // Cleanup serial buffer
   while (_serial->available())
     recv();
@@ -138,6 +136,12 @@ void GSMModule::setTimeout(long first_time, long intra_time) {
   _intra_time = intra_time;
 }
 
+void GSMModule::addTask(const GSMTask & task)
+{
+  GSMTask _task(task);
+  send(_task.gsmString().c_str());
+}
+
 void GSMModule::proc() {
   //if (_serial->available())
   //  recv();
@@ -219,12 +223,9 @@ void GSMModule::parse(byte * _buf, size_t size)
     //Serial.println(sms_num,DEC);
     if (sms_num)
     {
-      //read sms
-      /*String cmd = "AT+CMGR=";
-      cmd.concat(sms_num);
-      send(cmd.c_str());*/
-      String cmd = "AT+CMGDA=\"DEL SENT\"";
-      send(cmd.c_str());
+      GSMTask::GSM_READ_SMS_T task_data;
+      task_data.number = sms_num;
+      addTask(GSMTask(GSMTask::GSM_TASK_READ_SMS,&task_data));
     }
     break;
   }

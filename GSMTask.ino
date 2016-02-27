@@ -6,6 +6,7 @@ GSMTask::GSMTask(GSM_TASK_T task,void * data)
   _completed = false;
   _error = false;
   _tmp_number = 0;
+  parse_stage = PARSE_NONE;
   //create output string to gsm
   switch (_task)
   {
@@ -26,6 +27,7 @@ GSMTask::GSMTask(GSM_TASK_T task,void * data)
     break;
     
   case GSM_TASK_DELETE_RECEIVED_SMS:
+    _gsm_string = "AT+CMGDA=\"DEL READ\"";
     break;
     
   case GSM_TASK_GETTIME:
@@ -34,6 +36,7 @@ GSMTask::GSMTask(GSM_TASK_T task,void * data)
     break;
        
   }
+  parse_stage = PARSE_ECHO;
 }
 
 
@@ -53,5 +56,19 @@ GSMTask &GSMTask::operator=(const GSMTask & task)
   this -> _tmp_number = task._tmp_number;
   this -> _gsm_string = task._gsm_string;
   return * this;
+}
+
+bool GSMTask::parseAnswer(byte * _buf, size_t size)
+{
+  switch (parse_stage)
+  {
+  case PARSE_NONE:
+    return false;
+  case PARSE_ECHO:
+  {
+    int res = memcmp(_gsm_string.c_str(),_buf,_gsm_string.length());
+    break;
+  }  
+  }
 }
 

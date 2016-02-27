@@ -42,10 +42,19 @@ void setup()
   //gsm.sendSMS("","hello");
 }
 unsigned long next_cmd_time = 0;
+bool sent =false;
 void loop() 
 { 
   //vs.proc();
   gsm.proc(); 
+  if (!sent)
+  {
+    sent = true;
+    GSMTask::GSM_READ_SMS_T param;
+    param.number = 4;
+    GSMTask task(GSMTask::GSM_TASK_DELETE_RECEIVED_SMS,&param);
+    gsm.addTask(task);
+  }
   /*sh.proc();
   if (sh.isFree() && next_cmd_time < millis())
   {

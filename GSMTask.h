@@ -22,7 +22,7 @@ public:
     long number;
   } GSM_READ_SMS_T;
   
-  GSMTask(GSM_TASK_T task,void * data);
+  GSMTask(GSM_TASK_T task,void * data = NULL);
   GSMTask(const GSMTask & task);
   GSMTask & operator=(const GSMTask & task);
   //get current task
@@ -40,9 +40,18 @@ protected:
   //Friends only functions
   bool setCompleted(bool value) {_completed = value;}
   bool setError(bool value) {_error = value;}
+  bool parseAnswer(byte * _buf, size_t size);
   //get output gsm string for gsmmoddule friend class
   String gsmString() const {return _gsm_string;}
 private:
+  typedef enum {
+    PARSE_NONE,
+    PARSE_ECHO,
+    PARSE_IN_SMS_INFO,
+    PARSE_IN_SMS_TEXT,
+    PARSE_OK
+  } PARSE_STAGE_T;
+  PARSE_STAGE_T parse_stage;
   GSM_TASK_T _task;
   bool _completed;
   bool _error;

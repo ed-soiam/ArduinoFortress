@@ -8,7 +8,8 @@ GSMModule::GSMModule(HardwareSerial &serial) :
   _overflow_slot(0),
   _buf_size(0),
   _r_flag(false),
-  _cb() {}
+  task(GSMTask::GSM_TASK_NONE)
+   {}
 
 
 void GSMModule::setPhone(unsigned char element, const String & phone_number)
@@ -36,126 +37,42 @@ void GSMModule::send(const char *cmd)
   _serial->write(cmd);
   _serial->write('\r');
 
-#ifdef ECHO_ENABLED
-  console.print(F(":"));
-  console.println(cmd);
+#ifdef GSM_MODULE_DEBUG
+  Serial.write("GSM OUT: ");
+  Serial.println(cmd);
 #endif
 }
 
-void GSMModule::send_P(const char *cmd) 
+
+void GSMModule::setTimeout(long first_time, long intra_time) 
 {
-  // Cleanup serial buffer
-  while (_serial->available())
-    recv();
-  Serial.println((__FlashStringHelper *)cmd);
-  //Serial.write('\r');
-  _serial->print((__FlashStringHelper *)cmd);
-  _serial->write('\r');
-
-#ifdef ECHO_ENABLED
-  console.print(F(":"));
-  console.println((__FlashStringHelper *)cmd);
-#endif
-}
-
-void GSMModule::handleCallback() {
-  // Handle overflow request first
-  size_t pos = 0;
-  int i = _overflow_slot;
-  if (_overflow_size > 0 && _cb[i].func)
-    pos += _cb[i].func(_buf, _buf_size, _cb[i].data);
-
-  // Handle the rest if we still have available space
-  while (pos < _buf_size) {
-    size_t used = 0;
-    for (i = 0; i < GSM_MAX_CALLBACK; i++) {
-      if (_cb[i].func && !strncmp_P((char *)_buf + pos, _cb[i].match, _cb[i].length)) {
-        used = _cb[i].func(_buf + pos, _buf_size - pos, _cb[i].data);
-        if (used)
-          break;
-      }
-    }
-    pos += used ? used : 1;
-  }
-
-  // Callback can request overflow by returning used space
-  // beyond _buf space
-  if (pos > _buf_size) {
-    _overflow_size = pos - _buf_size;
-    _overflow_slot = i;
-  } else {
-    _overflow_size = 0;
-  }
-}
-
-size_t GSMModule::recv() {
-  unsigned long timeout = millis() + _first_time;
-  _buf_size = 0;
-  while (millis() < timeout) {
-    if (_serial->available()) {
-      
-      _buf[_buf_size++] = _serial->read();
-      Serial.write(_buf[_buf_size-1]);
-      if (_intra_time > 0)
-        timeout = millis() + _intra_time;
-      if (_buf_size >= GSM_BUFFER_SIZE)
-        break;
-    }
-  }
-  _buf[_buf_size] = 0;
-#ifdef ECHO_ENABLED
-  if (_buf_size > 0)
-    console.write((byte *) _buf, _buf_size);
-#endif
-  handleCallback();
-  return _buf_size;
-}
-
-char *GSMModule::find_P(const char *needle) {
-  return strstr_P((char *)_buf, needle);
-}
-
-int GSMModule::recvUntil_P(const char *s1, const char *s2, const char *s3) {
-  const char *ss[3] = { s1, s2, s3 };
-  recv();
-  for (int i = 0; i < 3; i++)
-    if (ss[i] && strstr_P((char *)_buf, ss[i]) != NULL)
-      return i + 1;
-  return 0;
-}
-
-int GSMModule::recvUntil_P(int tries, const char *s1, const char *s2, const char *s3) {
-  int ret = 0;
-  for (int i = 0; i < tries && ret == 0; i++)
-    ret = recvUntil_P(s1, s2, s3);
-  return ret;
-}
-
-void GSMModule::setTimeout(long first_time, long intra_time) {
   _first_time = first_time;
   _intra_time = intra_time;
 }
 
 void GSMModule::addTask(const GSMTask & task)
 {
-  GSMTask _task(task);
-  send(_task.gsmString().c_str());
+  this -> task = task;
+  this -> task.setCompleted(false);
+  this -> task.setError(false);
+  send(task.gsmString().c_str());
 }
 
-void GSMModule::proc() {
-  //if (_serial->available())
-  //  recv();
+void GSMModule::proc() 
+{
   while(_serial -> available())
   {
     _buf[_buf_size] = _serial -> read();
     //ignoring start \r and \n symbols
     if (!_buf_size && (_buf[_buf_size] == '\n' || _buf[_buf_size] == '\r'))
       continue;
-    Serial.write(_buf[_buf_size]);
+    //Serial.write(_buf[_buf_size]);
     if (_buf[_buf_size] == '\n' && _r_flag)
     {
       //parse string
-      parse(_buf, _buf_size + 1);
+      if (!parseSTD(_buf, _buf_size + 1))
+        if (task.task() != GSMTask::GSM_TASK_NONE && !task.isCompleted())
+          task.parseAnswer(_buf, _buf_size + 1);
       _buf_size = 0;
       _r_flag = false;
       continue;
@@ -184,18 +101,13 @@ const CMD_PARSER parser[PARSE_CMDS] = {
                               {"+CMTI: \"SM\",",GSM_PARSER_INCOME_SMS},
                               {"RING",GSM_PARSER_INCOME_RING}
 };
-void GSMModule::parse(byte * _buf, size_t size)
+bool GSMModule::parseSTD(byte * _buf, size_t size)
 {
   Serial.write("GSM IN:");
   for (size_t i = 0; i < size; i++)
-  {
     Serial.write(_buf[i]);
-    //Serial.print(_buf[i],HEX);
-    // Serial.print(" ");
-  }
-  //Serial.write("\n\rsize:");
-  //Serial.println(size,DEC);
-  
+
+  //searching of standard initiative parser
   int parse_index;
   for (parse_index = 0; parse_index < PARSE_CMDS; parse_index++)
   {
@@ -212,7 +124,7 @@ void GSMModule::parse(byte * _buf, size_t size)
   }
 
   if (parse_index == PARSE_CMDS)
-    return;
+    return false;//this is not a standard initiative modem command
             
   switch(parser[parse_index].parser)
   {
@@ -232,17 +144,13 @@ void GSMModule::parse(byte * _buf, size_t size)
   case GSM_PARSER_INCOME_RING:
     break;
   default:
-    return;  
+    break;  
   }
+  return true;
 }
 
-void GSMModule::setCallback_P(int slot, const char *match, callback_func func, void *data) {
-  _cb[slot].match = match;
-  _cb[slot].length = strlen_P((char *)match);
-  _cb[slot].data = data;
-  _cb[slot].func = func;
-}
 
+/*
 
 boolean GSMModule::isModemReady() {
   boolean ready = false;
@@ -309,4 +217,4 @@ bool GSMModule::sendSMS(const String & number, const String & text)
   //todo: if not ok, do escape from message mode 
   return ok;
 }
-
+*/

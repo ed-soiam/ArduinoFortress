@@ -58,6 +58,18 @@ void GSMModule::addTask(const GSMTask & task)
   send(task.gsmString().c_str());
 }
 
+
+void GSMModule::clearCurrentTask()
+{
+  this -> task = GSMTask(GSMTask::GSM_TASK_NONE);
+}
+
+
+void GSMModule::clearTasks()
+{
+  
+}
+
 void GSMModule::proc() 
 {
   while(_serial -> available())
@@ -149,43 +161,7 @@ bool GSMModule::parseSTD(byte * _buf, size_t size)
   return true;
 }
 
-
 /*
-
-boolean GSMModule::isModemReady() {
-  boolean ready = false;
-  for (int i = 0; i < 2 && !ready; i++)
-    ready = sendRecvUntil_P(G("AT"), G("OK"));
-  if (ready)
-    sendRecv_P(G("ATE0"));
-  return ready;
-}
-
-boolean GSMModule::isRegistered() {
-  return sendRecvUntil_P(G("AT+CREG?"), G("+CREG: 0,1"));
-}
-
-boolean GSMModule::isAttached() {
-  return sendRecvUntil_P(G("AT+CGATT?"), G("+CGATT: 1"));
-}
-
-#define IMEI_LENGTH 14
-
-boolean GSMModule::getIMEI(char *imei) {
-  if (!sendRecvUntil_P(G("AT+GSN"), G("OK")))
-    return false;
-  int len = 0;
-  for (size_t i = 0; i < _buf_size && len < IMEI_LENGTH; i++) {
-    if ('0' <= _buf[i] && _buf[i] <= '9')
-      imei[len++] = _buf[i];
-    else if (len > 0)
-      break;
-  }
-  imei[len] = 0;
-  return true;
-}
-
-
 bool GSMModule::sendSMS(const String & number, const String & text)
 {
   String sms_cmd;

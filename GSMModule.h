@@ -11,9 +11,17 @@ public:
   void setPhone(unsigned char element, const String & phone_number);
 	void begin(unsigned long baud);
 	void end();
-
+ 
+  //add new gsm task to module(put it in run queue)
   void addTask(const GSMTask & task);
-
+  
+  //get current executing GSM task
+  GSMTask currentTask() const {return task;}
+  
+	//delete current task and execute next if exists
+	void clearCurrentTask();
+  //delete all GSM tasks in queue,except current
+  void clearTasks();
 	// Set timeout for recv() and recvUntil()
 	void setTimeout(long first_time = 1000, long intra_time = 50);
 

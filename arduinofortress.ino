@@ -52,8 +52,20 @@ void loop()
     sent = true;
     GSMTask::GSM_READ_SMS_T param;
     param.number = 4;
-    GSMTask task(GSMTask::GSM_TASK_DELETE_RECEIVED_SMS,&param);
+    GSMTask task(GSMTask::GSM_TASK_GET_REGISTERED,&param);
     gsm.addTask(task);
+  }
+  if (gsm.currentTask().isCompleted())
+  {
+    if (gsm.currentTask().isError())
+      Serial.println("GSM TASK error");
+    else
+    {
+      Serial.println("GSM TASK ok");
+      Serial.print("GSM Registered is ");
+      Serial.println(gsm.currentTask().resultBool() ? "on" : "off");
+      gsm.clearCurrentTask();
+    }
   }
   /*sh.proc();
   if (sh.isFree() && next_cmd_time < millis())

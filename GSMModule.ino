@@ -84,12 +84,20 @@ void GSMModule::proc()
     if (!_buf_size && (_buf[_buf_size] == '\n' || _buf[_buf_size] == '\r'))
       continue;
     //Serial.write(_buf[_buf_size]);
-    if (_buf[_buf_size] == '\n' && _r_flag)
+    if ((_buf[_buf_size] == '\n' && _r_flag) || 
+        (task.task() == GSMTask::GSM_TASK_SEND_SMS && (char)_buf[0] == '>'))//crutch for sms welcome mode
     {
       //parse string
       if (!parseSTD(_buf, _buf_size + 1))
         if (task.task() != GSMTask::GSM_TASK_NONE && !task.isCompleted())
           if (task.parseAnswer(_buf, _buf_size + 1))
+          {
+            if (!task.isCompleted() && task.isExtSend())//additional send required?
+            {
+              task.clearExtSend();
+              send(task.gsmString().c_str());
+            }
+            
             if (task.isCompleted() && !task.isError() && task.task() == GSMTask::GSM_TASK_READ_SMS)
             {//check phone number of income sms. if it isn't at our white list, delete this task
               int i;
@@ -104,6 +112,7 @@ void GSMModule::proc()
 #endif
               }             
             }
+          }
       _buf_size = 0;
       memset(_buf,0,sizeof(_buf));
       _r_flag = false;

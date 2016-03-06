@@ -37,21 +37,19 @@ void setup()
   
   gsm.begin(115200);
   sh.begin(115200);
-  msg = NetroMessage::createStd(0x1220,0,0,0);
-
-  //clearing SIM module memory from all sms
-  GSMTask task(GSMTask::GSM_TASK_DELETE_SENT_SMS,0);
-  gsm.addTask(task);
-  task = GSMTask(GSMTask::GSM_TASK_DELETE_READ_SMS,0);
-  gsm.addTask(task);
-  task = GSMTask(GSMTask::GSM_TASK_DELETE_UNREAD_SMS,0);
-  gsm.addTask(task);
+  msg = NetroMessage::createStd(0x1220,0,0,0); 
+  GSMTask task;
   //prepare SIM module text mode
   task = GSMTask(GSMTask::GSM_TASK_SET_SMS_MODE,0);
   gsm.addTask(task);
   task = GSMTask(GSMTask::GSM_TASK_SET_GSM_ENCODING,0);
   gsm.addTask(task);
+  //clearing SIM module memory from all sms
+  task = GSMTask(GSMTask::GSM_TASK_DELETE_ALL_SMS,0);
+  gsm.addTask(task);
 }
+
+
 unsigned long next_cmd_time = 0;
 bool sent =false;
 void loop() 
@@ -61,11 +59,13 @@ void loop()
   if (!sent)
   {
     sent = true;
-    GSMTask::GSM_READ_SMS_T param;
-    param.number = 2;
-    GSMTask task(GSMTask::GSM_TASK_READ_SMS,&param);
-    gsm.addTask(task);
+    GSMTask task;
     task = GSMTask(GSMTask::GSM_TASK_GET_REGISTERED,0);
+    gsm.addTask(task);
+    GSMTask::GSM_SEND_SMS_T param2;
+    param2.text = "Hello";
+    param2.phone = "+3750000000";
+    task = GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param2);
     gsm.addTask(task);
   }
   if (gsm.currentTask().isCompleted())

@@ -26,6 +26,7 @@ GSMTask &GSMTask::operator=(const GSMTask & task)
   this -> _bool_value = task._bool_value;
   this -> _gsm_string = task._gsm_string;
   this -> _parse_stage = task._parse_stage;
+  this -> _ext_send = task._ext_send;
   return * this;
 }
 
@@ -35,6 +36,7 @@ void GSMTask::_setTask(GSM_TASK_T task,void * data)
   _task = task;
   _completed = false;
   _error = false;
+  _ext_send = false;
   //create output string to gsm
   switch (_task)
   {
@@ -69,6 +71,10 @@ void GSMTask::_setTask(GSM_TASK_T task,void * data)
   case GSM_TASK_READ_SMS:
     _gsm_string = "AT+CMGR=";
     _gsm_string.concat(((GSM_READ_SMS_T *)data) -> number);
+    break;
+    
+  case GSM_TASK_DELETE_ALL_SMS:
+    _gsm_string = "AT+CMGDA=\"DEL ALL\"";
     break;
     
   case GSM_TASK_DELETE_SENT_SMS:
@@ -106,6 +112,9 @@ void GSMTask::_setTask(GSM_TASK_T task,void * data)
 
 bool GSMTask::parseAnswer(byte * _buf, size_t size)
 {
+  if (_ext_send)
+    return false;
+    
   switch (_parse_stage)
   {
   case PARSE_NONE:
@@ -135,6 +144,9 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
       return true;
     case GSM_TASK_GET_REGISTERED:
       _parse_stage = PARSE_REGISTERED_STATE;
+      return true;
+    case GSM_TASK_SEND_SMS:
+      _parse_stage = PARSE_SMS_MODE_WELCOME;
       return true;
     default: 
       _parse_stage = PARSE_OK;
@@ -218,7 +230,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
         }
       }
       _parse_stage = PARSE_IN_SMS_TEXT;
-      break;
+      return true;
     }
     res = memcmp(ok_str.c_str(),_buf,ok_str.length());
     if (!res)
@@ -242,8 +254,39 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
 #endif
     _text = String((char *)_buf);
     _parse_stage = PARSE_OK;
-    break;
+    return true;
     
+  case PARSE_SMS_MODE_WELCOME:
+    if ((char)_buf[0] != '>')
+    {
+#ifdef GSM_TASKS_DEBUG
+      Serial.println("GSMTask: No welcome to text mode was found");
+#endif
+      return false;      
+    }
+    _gsm_string = _text + "\x1a";
+    _ext_send = true;
+    _parse_stage = PARSE_SMS_SEND_STATE;
+    return true;
+    
+  case PARSE_SMS_SEND_STATE:
+  {
+    String cmgs_str = "+CMGS:";
+    int res = memcmp(cmgs_str.c_str(),_buf,cmgs_str.length()); 
+    if (!res)
+    {
+#ifdef GSM_TASKS_DEBUG
+      Serial.println("GSMTask: SMS send process is on.");
+#endif
+      _parse_stage = PARSE_OK;
+      return true;
+    }
+#ifdef GSM_TASKS_DEBUG
+    Serial.println("GSMTask: No SMS send process was found.");
+#endif
+    return false;
+  }
+  
   case  PARSE_OK:
   {
     String ok_str = "OK\r\n";
@@ -280,5 +323,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
 #endif
     return false;
   }
+
+  return false;
 }
 

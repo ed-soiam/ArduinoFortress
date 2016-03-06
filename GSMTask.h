@@ -11,6 +11,7 @@ public:
     GSM_TASK_SET_GSM_ENCODING,
     GSM_TASK_SEND_SMS,
     GSM_TASK_READ_SMS,//returns resultText() and resultPhone()
+    GSM_TASK_DELETE_ALL_SMS,
     GSM_TASK_DELETE_SENT_SMS,
     GSM_TASK_DELETE_READ_SMS,
     GSM_TASK_DELETE_UNREAD_SMS,
@@ -47,10 +48,15 @@ public:
   String resultText() const {return _text;}
   long resultInt() const {return _tmp_number;}
 protected:
-  //Friends only functions
+  /*Friends only functions*/
   bool setCompleted(bool value) {_completed = value;}
   bool setError(bool value) {_error = value;}
   bool parseAnswer(byte * _buf, size_t size);
+  //Is additional send of subcommand is requied?
+  bool isExtSend() const {return _ext_send;}
+  //Clear additional send flag
+  void clearExtSend() {_ext_send = false;}
+  
   //get output gsm string for gsmmoddule friend class
   String gsmString() const {return _gsm_string;}
 private:
@@ -61,11 +67,14 @@ private:
     PARSE_IN_SMS_TEXT,
     PARSE_ATTACHED_STATE,
     PARSE_REGISTERED_STATE,
+    PARSE_SMS_MODE_WELCOME,
+    PARSE_SMS_SEND_STATE,
     PARSE_OK
   } PARSE_STAGE_T;
   PARSE_STAGE_T _parse_stage;
   GSM_TASK_T _task;
   inline void _setTask(GSM_TASK_T task,void * data);
+  bool _ext_send;//additional send of subcommand in main command during parse process
   bool _completed;
   bool _error;
   String _gsm_string;

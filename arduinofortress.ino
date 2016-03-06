@@ -9,6 +9,7 @@ NetroMessage * msg;
 AnalogSensor vs(0,450,true);//11.2v low on 5v power supply
 GSMModule gsm(Serial1);
 SHModem sh(Serial3);
+int freeRam();
 
 void saveTestPhone()
 {
@@ -37,9 +38,19 @@ void setup()
   gsm.begin(115200);
   sh.begin(115200);
   msg = NetroMessage::createStd(0x1220,0,0,0);
-  //gsm.isAttached();
-   
-  //gsm.sendSMS("","hello");
+
+  //clearing SIM module memory from all sms
+  GSMTask task(GSMTask::GSM_TASK_DELETE_SENT_SMS,0);
+  gsm.addTask(task);
+  task = GSMTask(GSMTask::GSM_TASK_DELETE_READ_SMS,0);
+  gsm.addTask(task);
+  task = GSMTask(GSMTask::GSM_TASK_DELETE_UNREAD_SMS,0);
+  gsm.addTask(task);
+  //prepare SIM module text mode
+  task = GSMTask(GSMTask::GSM_TASK_SET_SMS_MODE,0);
+  gsm.addTask(task);
+  task = GSMTask(GSMTask::GSM_TASK_SET_GSM_ENCODING,0);
+  gsm.addTask(task);
 }
 unsigned long next_cmd_time = 0;
 bool sent =false;
@@ -51,8 +62,10 @@ void loop()
   {
     sent = true;
     GSMTask::GSM_READ_SMS_T param;
-    param.number = 4;
-    GSMTask task(GSMTask::GSM_TASK_GET_REGISTERED,&param);
+    param.number = 2;
+    GSMTask task(GSMTask::GSM_TASK_READ_SMS,&param);
+    gsm.addTask(task);
+    task = GSMTask(GSMTask::GSM_TASK_GET_REGISTERED,0);
     gsm.addTask(task);
   }
   if (gsm.currentTask().isCompleted())
@@ -61,11 +74,12 @@ void loop()
       Serial.println("GSM TASK error");
     else
     {
+      Serial.println(freeRam());
       Serial.println("GSM TASK ok");
-      Serial.print("GSM Registered is ");
-      Serial.println(gsm.currentTask().resultBool() ? "on" : "off");
-      gsm.clearCurrentTask();
+      Serial.println(gsm.currentTask().resultPhone().c_str());
+      Serial.println(gsm.currentTask().resultText().c_str());      
     }
+    gsm.clearCurrentTask();
   }
   /*sh.proc();
   if (sh.isFree() && next_cmd_time < millis())
@@ -73,6 +87,13 @@ void loop()
     sh.sendCommand(*msg);
     next_cmd_time = millis()  + 5000;
   }*/
+}
+
+int freeRam () 
+{
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 
 void setupSensor()

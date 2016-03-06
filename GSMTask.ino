@@ -42,8 +42,29 @@ void GSMTask::_setTask(GSM_TASK_T task,void * data)
     _completed = false;
     _error = true;
     break;
-  case GSM_TASK_SEND_SMS:
+    
+  case GSM_TASK_SET_SMS_MODE:
+    _gsm_string = "AT+CMGF=1";
     break;
+    
+  case GSM_TASK_SET_GSM_ENCODING:
+    _gsm_string = "AT+CSCS= \"GSM\"";
+    break;
+    
+  case GSM_TASK_SEND_SMS:
+  {
+    if (!data)
+    {
+      _completed = false;
+      _error = true;
+      break;
+    }
+    GSM_SEND_SMS_T * sms = (GSM_SEND_SMS_T *)data;
+    _phone_number = sms -> phone;
+    _text = sms -> text;
+    _gsm_string = "AT+CMGS=\"" + _phone_number + "\"";
+    break;
+  }
     
   case GSM_TASK_READ_SMS:
     _gsm_string = "AT+CMGR=";
@@ -174,15 +195,59 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
   }
   
   case PARSE_IN_SMS_INFO:
-    break;//TODO:
+  {
+    String cmgr_str = "+CMGR:";
+    String ok_str = "OK\r\n";
+    int res = memcmp(cmgr_str.c_str(),_buf,cmgr_str.length());
+    if (!res)
+    {
+      int i,find_quotes = 0;
+      //parse something like that, get phone number
+      //+CMGR: "REC UNREAD","+375290000000","","16/03/06,13:45:30+12"
+      _phone_number = "";
+      for (i = 0; i < size; i++)
+      {
+        if ((char)_buf[i] == '\"')
+          find_quotes++;
+        else
+        {
+          if (find_quotes >= 4)
+            break;
+          if (find_quotes == 3)
+            _phone_number.concat((char)_buf[i]);
+        }
+      }
+      _parse_stage = PARSE_IN_SMS_TEXT;
+      break;
+    }
+    res = memcmp(ok_str.c_str(),_buf,ok_str.length());
+    if (!res)
+    {
+#ifdef GSM_TASKS_DEBUG
+      Serial.println("GSMTask: End of command(OK) was found. No sms was found.");
+#endif
+      _completed = true;
+      _error = true;
+      return true;
+    }
+#ifdef GSM_TASKS_DEBUG
+    Serial.println("GSMTask: Not a sms info");
+#endif
+    return false;
+  }
     
   case PARSE_IN_SMS_TEXT:
-    break;//TODO:
+#ifdef GSM_TASKS_DEBUG
+      Serial.println("GSMTask: SMS text was caught");
+#endif
+    _text = String((char *)_buf);
+    _parse_stage = PARSE_OK;
+    break;
     
   case  PARSE_OK:
   {
     String ok_str = "OK\r\n";
-    String err_str = "OK\r\n";
+    String err_str = "ERROR\r\n";
     int res = memcmp(ok_str.c_str(),_buf,ok_str.length());
     if (!res)
     {

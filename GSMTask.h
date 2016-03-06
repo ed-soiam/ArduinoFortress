@@ -7,6 +7,8 @@ public:
   friend class GSMModule;
   typedef enum{
     GSM_TASK_NONE = 0,
+    GSM_TASK_SET_SMS_MODE,
+    GSM_TASK_SET_GSM_ENCODING,
     GSM_TASK_SEND_SMS,
     GSM_TASK_READ_SMS,//returns resultText() and resultPhone()
     GSM_TASK_DELETE_SENT_SMS,
@@ -27,7 +29,7 @@ public:
     long number;
   } GSM_READ_SMS_T;
   
-  GSMTask(GSM_TASK_T task,void * data = NULL);
+  GSMTask(GSM_TASK_T task = GSM_TASK_NONE,void * data = NULL);
   GSMTask(const GSMTask & task);
   GSMTask & operator=(const GSMTask & task);
   //get current task

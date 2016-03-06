@@ -4,12 +4,11 @@ GSMModule::GSMModule(HardwareSerial &serial) :
   _serial(&serial),
   _first_time(1000),
   _intra_time(50),
-  _overflow_size(0),
-  _overflow_slot(0),
   _buf_size(0),
-  _r_flag(false),
-  task(GSMTask::GSM_TASK_NONE)
-   {}
+  _r_flag(false)
+{
+  clearTasks();
+}
 
 
 void GSMModule::setPhone(unsigned char element, const String & phone_number)
@@ -50,24 +49,30 @@ void GSMModule::setTimeout(long first_time, long intra_time)
   _intra_time = intra_time;
 }
 
-void GSMModule::addTask(const GSMTask & task)
+bool GSMModule::addTask(const GSMTask & task)
 {
-  this -> task = task;
-  this -> task.setCompleted(false);
-  this -> task.setError(false);
-  send(task.gsmString().c_str());
+  if ((task_queue.write_pointer + 1) % TASK_QUEUE_SIZE == task_queue.read_pointer)
+    return false;//no space in queue
+  task_queue.task[task_queue.write_pointer] = task;
+  task_queue.task[task_queue.write_pointer].setCompleted(false);
+  task_queue.task[task_queue.write_pointer].setError(false);
+  task_queue.write_pointer = (task_queue.write_pointer + 1) % TASK_QUEUE_SIZE;
+  return true;
 }
 
 
 void GSMModule::clearCurrentTask()
 {
-  this -> task = GSMTask(GSMTask::GSM_TASK_NONE);
+  task = GSMTask(GSMTask::GSM_TASK_NONE);
 }
 
 
 void GSMModule::clearTasks()
 {
-  
+  for (int i = 0; i < TASK_QUEUE_SIZE; i++)
+    task_queue.task[i] = GSMTask(GSMTask::GSM_TASK_NONE);
+  task_queue.read_pointer = 0;
+  task_queue.write_pointer = 0;
 }
 
 void GSMModule::proc() 
@@ -84,8 +89,23 @@ void GSMModule::proc()
       //parse string
       if (!parseSTD(_buf, _buf_size + 1))
         if (task.task() != GSMTask::GSM_TASK_NONE && !task.isCompleted())
-          task.parseAnswer(_buf, _buf_size + 1);
+          if (task.parseAnswer(_buf, _buf_size + 1))
+            if (task.isCompleted() && !task.isError() && task.task() == GSMTask::GSM_TASK_READ_SMS)
+            {//check phone number of income sms. if it isn't at our white list, delete this task
+              int i;
+              for (i = 0; i < PHONE_NUMBER_COUNT; i++)
+                if (_phone_numbers[i].length() && _phone_numbers[i] == task.resultPhone())
+                  break;
+              if (i == PHONE_NUMBER_COUNT)
+              {
+                clearCurrentTask();
+#ifdef GSM_MODULE_DEBUG
+                Serial.println("GSM: sms from non-white phone list. Banned");
+#endif
+              }             
+            }
       _buf_size = 0;
+      memset(_buf,0,sizeof(_buf));
       _r_flag = false;
       continue;
     }
@@ -94,14 +114,22 @@ void GSMModule::proc()
         _r_flag = true;
     _buf_size++;
   }
-
+  
+  //if no task is active, get new one from queue
+  if (task.task() == GSMTask::GSM_TASK_NONE && task_queue.read_pointer != task_queue.write_pointer)
+  {
+    task = task_queue.task[task_queue.read_pointer];
+    task_queue.read_pointer = (task_queue.read_pointer + 1) % TASK_QUEUE_SIZE;
+#ifdef GSM_MODULE_DEBUG
+    Serial.println("GSM: starting new gsm task...");
+#endif
+    send(task.gsmString().c_str());
+  }
 }
 
 typedef enum {
   GSM_PARSER_INCOME_SMS,
-  GSM_PARSER_INCOME_RING,
-  GSM_PARSER_GET_SMS,
-  GSM_PARSER_DELETE_SMS  
+  GSM_PARSER_INCOME_RING 
 } GSM_PARSER;
 
 typedef struct _cmd_parser {
@@ -115,10 +143,11 @@ const CMD_PARSER parser[PARSE_CMDS] = {
 };
 bool GSMModule::parseSTD(byte * _buf, size_t size)
 {
+#ifdef GSM_MODULE_DEBUG
   Serial.write("GSM IN:");
   for (size_t i = 0; i < size; i++)
     Serial.write(_buf[i]);
-
+#endif
   //searching of standard initiative parser
   int parse_index;
   for (parse_index = 0; parse_index < PARSE_CMDS; parse_index++)
@@ -144,7 +173,6 @@ bool GSMModule::parseSTD(byte * _buf, size_t size)
   {
     String sms_in = String((char *)_buf + parser[parse_index].cmd.length());
     long sms_num = sms_in.toInt();
-    //Serial.println(sms_num,DEC);
     if (sms_num)
     {
       GSMTask::GSM_READ_SMS_T task_data;

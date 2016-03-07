@@ -1,30 +1,28 @@
 #include <stdlib.h>
-#include "NetroMessage.h"
-#include "AnalogSensor.h"
-#include "GSMModule.h"
-#include "SHModem.h"
-#include "EEPROMManager.h"
-
-NetroMessage * msg;
-AnalogSensor vs(0,450,true);//11.2v low on 5v power supply
-GSMModule gsm(Serial1);
-SHModem sh(Serial3);
-int freeRam();
-
-void saveTestPhone()
-{
-  EEPROMManager::PHONE_ELEMENT_T phone;
-  memset(&phone,0,sizeof(phone));
-  const char ph[] = "+375290000000";
-  memcpy(phone.number,ph,sizeof(ph));
-  EEPROMManager::save(EEPROMManager::EEPROM_PHONE_PART,0,(unsigned char *)&phone);
-}
+#include "ArduinoFortress.h"
+ArduinoFortress * af;
 
 void setup() 
 {
   Serial.begin(115200);
   delay(10000);
   pinMode(13, OUTPUT);
+  af = new ArduinoFortress();
+}
+
+
+void loop() 
+{ 
+  af -> proc();
+}
+
+
+ArduinoFortress::ArduinoFortress():
+  gsm(Serial1),
+  sh(Serial3),
+  vs(0,450,true),//11.2v low on 5v power supply
+  sent(false)
+{
   //saveTestPhone();
   //load phone settings from eeprom
   EEPROMManager::PHONE_ELEMENT_T phone;
@@ -37,7 +35,7 @@ void setup()
   
   gsm.begin(115200);
   sh.begin(115200);
-  msg = NetroMessage::createStd(0x1220,0,0,0); 
+  //msg = NetroMessage::createStd(0x1220,0,0,0); 
   GSMTask task;
   //prepare SIM module text mode
   task = GSMTask(GSMTask::GSM_TASK_SET_SMS_MODE,0);
@@ -50,38 +48,17 @@ void setup()
 }
 
 
-unsigned long next_cmd_time = 0;
-bool sent =false;
-void loop() 
-{ 
+void ArduinoFortress::proc()
+{
   //vs.proc();
   gsm.proc(); 
-  if (!sent)
-  {
-    sent = true;
-    GSMTask task;
-    task = GSMTask(GSMTask::GSM_TASK_GET_REGISTERED,0);
-    gsm.addTask(task);
-    GSMTask::GSM_SEND_SMS_T param2;
-    param2.text = "Hello";
-    param2.phone = "+3750000000";
-    task = GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param2);
-    gsm.addTask(task);
-  }
   if (gsm.currentTask().isCompleted())
   {
-    if (gsm.currentTask().isError())
-      Serial.println("GSM TASK error");
-    else
-    {
-      Serial.println(freeRam());
-      Serial.println("GSM TASK ok");
-      Serial.println(gsm.currentTask().resultPhone().c_str());
-      Serial.println(gsm.currentTask().resultText().c_str());      
-    }
+    parseGSMTaskResults(gsm.currentTask());     
     gsm.clearCurrentTask();
   }
-  /*sh.proc();
+  sh.proc();
+  /*
   if (sh.isFree() && next_cmd_time < millis())
   {
     sh.sendCommand(*msg);
@@ -89,15 +66,106 @@ void loop()
   }*/
 }
 
-int freeRam () 
+
+void ArduinoFortress::parseGSMTaskResults(const GSMTask & task)
+{
+  if (task.isError())
+    return;
+  switch (task.task())
+  {
+  case GSMTask::GSM_TASK_READ_SMS:
+    parseSMS(task.resultPhone(),task.resultText());
+    break;
+  default:
+    break;
+  }
+}
+
+
+void ArduinoFortress::parseSMS(const String & phone, const String & sms)
+{
+  GSMTask::GSM_SEND_SMS_T param;
+  String sms_text = sms;
+  param.phone = phone;
+  sms_text.toLowerCase();
+  //removing end symbols
+  while (sms_text.charAt(sms_text.length() - 1) == '\n' || sms_text.charAt(sms_text.length() - 1) == '\r')
+    sms_text.remove(sms_text.length() - 1);
+  
+  String sms_part[8];//cmd,subcmd and 6 parameters
+  int start_substring = 0;
+  bool any_symbols = false;
+  int part_number = 0;
+  for (int j = 0; j < sms.length(); j++)
+    if (sms_text.charAt(j) == ' ' || j == sms.length() - 1)
+    {
+      if (any_symbols)
+      {
+        sms_part[part_number] = sms_text.substring(start_substring,j);
+        part_number++;
+        if (part_number >= 8)
+          break;//too many words
+      }
+      start_substring = j + 1;
+      any_symbols = false;  
+    }
+    else
+    {
+      any_symbols = true;
+    }
+    
+  //command parser
+  if (sms_part[0] == "sensor")
+  {
+    if (sms_part[1] == "listen")
+    {
+      param.text = "listen ok";   
+    }
+    else
+      param.text = "listen subcommand error";
+    gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+    return;
+  }
+
+  if (sms_part[0] == "phone")
+  {
+
+    return;
+  }
+
+  if (sms_part[0] == "memory")
+  {
+
+    return;
+  }
+
+  if (sms_part[0] == "report")
+  {
+
+    return;
+  }
+  if (sms_part[0] == "hello")
+  {
+    param.text = "Hello my dear friend!!!";
+    gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+  }
+  Serial.println(sms_part[0].c_str());
+}
+
+
+int ArduinoFortress::freeRam() 
 {
   extern int __heap_start, *__brkval;
   int v;
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 
-void setupSensor()
+
+void ArduinoFortress::saveTestPhone()
 {
-
+  EEPROMManager::PHONE_ELEMENT_T phone;
+  memset(&phone,0,sizeof(phone));
+  const char ph[] = "+375290000000";
+  memcpy(phone.number,ph,sizeof(ph));
+  EEPROMManager::save(EEPROMManager::EEPROM_PHONE_PART,0,(unsigned char *)&phone);
 }
-

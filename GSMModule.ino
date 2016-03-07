@@ -2,8 +2,7 @@
 
 GSMModule::GSMModule(HardwareSerial &serial) :
   _serial(&serial),
-  _first_time(1000),
-  _intra_time(50),
+  _timeout_ms(10000),
   _buf_size(0),
   _r_flag(false)
 {
@@ -42,12 +41,6 @@ void GSMModule::send(const char *cmd)
 #endif
 }
 
-
-void GSMModule::setTimeout(long first_time, long intra_time) 
-{
-  _first_time = first_time;
-  _intra_time = intra_time;
-}
 
 bool GSMModule::addTask(const GSMTask & task)
 {
@@ -198,36 +191,23 @@ bool GSMModule::parseSTD(byte * _buf, size_t size)
   return true;
 }
 
-/*
-bool GSMModule::sendSMS(const String & number, const String & text)
+
+bool GSMModule::sendSMS(const String & text)
 {
-  String sms_cmd;
-  bool ok = false;
-  //switch to text sms mode
-  for (int i = 0; i < 2 && !ok; i++)
-    ok = sendRecvUntil_P(G("AT+CMGF=1"), G("OK"));
-  if (!ok)
-    return false;
-  //set sms encoding
-  ok = false;
-  for (int i = 0; i < 2 && !ok; i++)
-    ok = sendRecvUntil_P(G("AT+CSCS= \"GSM\""), G("OK"));
-  if (!ok)
-    return false;
-  //fill phone number 
-  ok = false;
-  sms_cmd = "AT+CMGS=\"" + number + "\"\r\n";
-  for (int i = 0; i < 2 && !ok; i++)
-    ok = sendRecvUntil_P(sms_cmd.c_str(), G(">"));    
-  if (!ok)
-    return false;
-  //set sms text 
-  ok = false;
-  setTimeout(5000,0);
-  sms_cmd = text + "\x1a";
-  ok = sendRecvUntil_P(sms_cmd.c_str(), G("OK"));  
-  setTimeout(1000,50); 
-  //todo: if not ok, do escape from message mode 
-  return ok;
+  GSMTask::GSM_SEND_SMS_T param;
+  param.text = text;
+    
+  for (int i = 0; i < PHONE_NUMBER_COUNT; i++)
+    if (_phone_numbers[i].length())
+    {
+#ifdef GSM_MODULE_DEBUG
+      Serial.print("GSM: Sending sms to ");
+      Serial.println(_phone_numbers[i].c_str());
+#endif
+      param.phone = _phone_numbers[i];
+      if (!addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param)))
+        return false;//no memory in queue
+    }
+  return true;      
 }
-*/
+

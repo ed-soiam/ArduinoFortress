@@ -21,14 +21,20 @@ public:
   
 	//delete current task and execute next if exists
 	void clearCurrentTask();
+  
   //delete all GSM tasks in queue,except current
   void clearTasks();
-	// Set timeout for recv() and recvUntil()
-	void setTimeout(long first_time = 1000, long intra_time = 50);
-
+  
+	// Set timeout for GSM task, ms;
+	void setTimeout(unsigned long value = 10000){_timeout_ms = value;}
+  unsigned long timeout() const {return _timeout_ms;}
+  
 	// Must be called frequently to check incoming data
 	void proc();
-
+  
+  //Send sms to all phones in white list
+  bool sendSMS(const String & text);
+  
 	inline HardwareSerial &serial() { return *_serial; }
 
 private:
@@ -49,10 +55,7 @@ private:
   String _phone_numbers[PHONE_NUMBER_COUNT];
 	byte _buf[GSM_BUFFER_SIZE];
 	size_t _buf_size;
-	unsigned long _first_time;
-	unsigned long _intra_time;
-	//size_t _overflow_size;
-	//byte _overflow_slot;
+	unsigned long _timeout_ms;
   bool _r_flag;//'\r' was caught in last byte
   GSMTask task;
   TASK_QUEUE_T task_queue; 

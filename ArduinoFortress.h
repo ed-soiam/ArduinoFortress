@@ -1,7 +1,7 @@
 #ifndef _ARDUINOFORTRESS_H_
 #define _ARDUINOFORTRESS_H_
 #include "NetroMessage.h"
-#include "AnalogSensor.h"
+#include "Sensor.h"
 #include "GSMModule.h"
 #include "SHModem.h"
 #include "EEPROMManager.h"
@@ -21,7 +21,7 @@ public:
 private:
   SHModem sh;
   GSMModule gsm;
-  AnalogSensor vs;
+  Sensor * sensor[SENSOR_COUNT];
   NetroMessage * msg;
   bool sent;
 };

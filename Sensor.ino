@@ -1,6 +1,8 @@
 #include "Sensor.h"
 
-Sensor::Sensor():_type(UNKNOWN_SENSOR)
+Sensor::Sensor(SENSOR_T type):
+_type(type),
+alarm(false)
 {
   
 }

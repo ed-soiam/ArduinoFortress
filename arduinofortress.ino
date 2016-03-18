@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include "ArduinoFortress.h"
+#include "AnalogSensor.h"
+#include "RemoteSensor.h"
 ArduinoFortress * af;
 
 void setup() 
@@ -20,37 +22,77 @@ void loop()
 ArduinoFortress::ArduinoFortress():
   gsm(Serial1),
   sh(Serial3),
-  vs(0,450,true),//11.2v low on 5v power supply
   sent(false)
 {
   //saveTestPhone();
-  //load phone settings from eeprom
-  EEPROMManager::PHONE_ELEMENT_T phone;
+  //load phone settings from eeprom  
   for (unsigned char i = 0; i < PHONE_NUMBER_COUNT; i++)
   {
+    EEPROMManager::PHONE_ELEMENT_T phone;
     EEPROMManager::load(EEPROMManager::EEPROM_PHONE_PART,i,(unsigned char *)&phone);
     if (phone.number[0] != 0xff && phone.number[0] != 0x00)
       gsm.setPhone(i,String((const char *)phone.number));
   } 
-  
+  //load sensors info from eeprom
+  for (unsigned char i = 0; i < SENSOR_COUNT; i++)
+  {
+    EEPROMManager::SENSOR_ELEMENT_T raw_sensor;
+    EEPROMManager::load(EEPROMManager::EEPROM_SENSOR_PART,i,(unsigned char *)&raw_sensor);
+    //factory needed :)
+    switch (raw_sensor.type)
+    {
+    case Sensor::ANALOG_SENSOR:
+
+      Serial.println("AnalogSensor was loaded");
+      Serial.flush();     
+      sensor[i] = new AnalogSensor(&raw_sensor);
+      Serial.println("AnalogSensor was created");
+      Serial.flush();  
+      break;
+    case Sensor::DIGITAL_SENSOR:
+    case Sensor::I2C_SENSOR:
+    case Sensor::REMOTE_SENSOR:
+      sensor[i] = NULL;
+      break;
+    default:
+      if (i == 0)//create analog voltage sensor if no sensor is presented in cell 0
+      {
+        Serial.println("Creating new Power voltage sensor");
+        sensor[i] = new AnalogSensor("Power voltage",0,450,true);//11.2v low on 5v power supply
+        sensor[i] -> toEEPROMData(&raw_sensor);
+        EEPROMManager::save(EEPROMManager::EEPROM_SENSOR_PART,i,(unsigned char *)&raw_sensor);
+      }
+      else
+      {
+        Serial.println("No sensor in cell");
+        Serial.flush();
+        sensor[i] = NULL;//no sensor in eeprom cell
+      }
+      break;  
+    }
+  }
+   
   gsm.begin(115200);
   sh.begin(115200);
   //msg = NetroMessage::createStd(0x1220,0,0,0); 
   GSMTask task;
+  //clearing SIM module memory from all sms
+  task = GSMTask(GSMTask::GSM_TASK_DELETE_ALL_SMS,0);
+  gsm.addTask(task);
   //prepare SIM module text mode
   task = GSMTask(GSMTask::GSM_TASK_SET_SMS_MODE,0);
   gsm.addTask(task);
   task = GSMTask(GSMTask::GSM_TASK_SET_GSM_ENCODING,0);
   gsm.addTask(task);
-  //clearing SIM module memory from all sms
-  task = GSMTask(GSMTask::GSM_TASK_DELETE_ALL_SMS,0);
-  gsm.addTask(task);
+  
 }
 
 
 void ArduinoFortress::proc()
 {
-  //vs.proc();
+  //for (int i = 0; i < SENSOR_COUNT; i++)
+  //  if (sensor[i])
+  //    sensor[i] -> proc();
   gsm.proc(); 
   if (gsm.currentTask().isCompleted())
   {
@@ -119,7 +161,14 @@ void ArduinoFortress::parseSMS(const String & phone, const String & sms)
   {
     if (sms_part[1] == "listen")
     {
-      param.text = "listen ok";   
+      for (int i = 0; i < SENSOR_COUNT; i++)
+        if (!sensor[i])
+        {
+           param.text = "listen ok"; 
+           gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+           return;  
+        }      
+       param.text = "listen fullmemory error";
     }
     else
       param.text = "listen subcommand error";
@@ -141,12 +190,21 @@ void ArduinoFortress::parseSMS(const String & phone, const String & sms)
 
   if (sms_part[0] == "report")
   {
-
+    if (sms_part[1] == "all")
+    {
+      //param.text += "Free mem " + String(freeRam());
+      //for (int i = 0; i < SENSOR_COUNT; i++)
+      //  if (sensor[i])
+          param.text += String(", ") + sensor[0] -> report();
+      Serial.println(param.text);
+      //gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+      return;
+    }
     return;
   }
   if (sms_part[0] == "hello")
   {
-    param.text = "Hello my dear friend!!!";
+    param.text = "Hello my dear friend!!! This is my first test sms";
     gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
   }
   Serial.println(sms_part[0].c_str());

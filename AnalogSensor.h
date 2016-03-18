@@ -4,9 +4,18 @@
 class AnalogSensor : public Sensor
 {
 public:
-  AnalogSensor(unsigned char pin, unsigned short compareValue, bool lowOn);
-  void proc();
+  AnalogSensor(const String & name, unsigned char pin, unsigned short compareValue, bool lowOn);
+  AnalogSensor(EEPROMManager::SENSOR_ELEMENT_T * data);
+  bool proc();
+  //setup sensor from raw data
+  virtual bool fromEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data);
+  virtual bool toEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data);
+  virtual String alarmMessage() const;
+  virtual String report() const;
 private:
-  unsigned char pin; 
+  unsigned char _pin; 
+  unsigned short _compare;
+  bool _lowOn;
+  unsigned short value;
 };
 #endif

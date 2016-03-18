@@ -18,6 +18,7 @@ void GSMModule::setPhone(unsigned char element, const String & phone_number)
   Serial.write("GSM: register phone ");
   Serial.write(phone_number.c_str());
   Serial.write("\n\r");
+  Serial.flush();
 }
 
 
@@ -38,6 +39,7 @@ void GSMModule::send(const char *cmd)
 #ifdef GSM_MODULE_DEBUG
   Serial.write("GSM OUT: ");
   Serial.println(cmd);
+  Serial.flush();
 #endif
 }
 
@@ -102,6 +104,7 @@ void GSMModule::proc()
                 clearCurrentTask();
 #ifdef GSM_MODULE_DEBUG
                 Serial.println("GSM: sms from non-white phone list. Banned");
+                Serial.flush();
 #endif
               }             
             }
@@ -124,6 +127,7 @@ void GSMModule::proc()
     task_queue.read_pointer = (task_queue.read_pointer + 1) % TASK_QUEUE_SIZE;
 #ifdef GSM_MODULE_DEBUG
     Serial.println("GSM: starting new gsm task...");
+    Serial.flush();
 #endif
     send(task.gsmString().c_str());
   }
@@ -149,6 +153,7 @@ bool GSMModule::parseSTD(byte * _buf, size_t size)
   Serial.write("GSM IN:");
   for (size_t i = 0; i < size; i++)
     Serial.write(_buf[i]);
+    Serial.flush();
 #endif
   //searching of standard initiative parser
   int parse_index;
@@ -203,6 +208,7 @@ bool GSMModule::sendSMS(const String & text)
 #ifdef GSM_MODULE_DEBUG
       Serial.print("GSM: Sending sms to ");
       Serial.println(_phone_numbers[i].c_str());
+      Serial.flush();
 #endif
       param.phone = _phone_numbers[i];
       if (!addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param)))

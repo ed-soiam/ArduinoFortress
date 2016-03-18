@@ -74,7 +74,8 @@ void GSMTask::_setTask(GSM_TASK_T task,void * data)
     break;
     
   case GSM_TASK_DELETE_ALL_SMS:
-    _gsm_string = "AT+CMGDA=\"DEL ALL\"";
+    //_gsm_string = "AT+CMGDA=\"DEL ALL\"";
+    _gsm_string = "AT+CMGD=0,4";
     break;
     
   case GSM_TASK_DELETE_SENT_SMS:
@@ -128,11 +129,13 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
 #ifdef GSM_TASKS_DEBUG
       Serial.print("GSMTask: Not an echo, differs at ");
       Serial.println(res);
+      Serial.flush();
 #endif
       return false;
     }
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: Echo was caught");
+      Serial.flush();
 #endif
     switch (_task)
     {
@@ -237,6 +240,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     {
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: End of command(OK) was found. No sms was found.");
+      Serial.flush();
 #endif
       _completed = true;
       _error = true;
@@ -244,6 +248,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     }
 #ifdef GSM_TASKS_DEBUG
     Serial.println("GSMTask: Not a sms info");
+    Serial.flush();
 #endif
     return false;
   }
@@ -251,6 +256,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
   case PARSE_IN_SMS_TEXT:
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: SMS text was caught");
+      Serial.flush();
 #endif
     _text = String((char *)_buf);
     _parse_stage = PARSE_OK;
@@ -261,6 +267,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     {
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: No welcome to text mode was found");
+      Serial.flush();
 #endif
       return false;      
     }
@@ -277,12 +284,14 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     {
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: SMS send process is on.");
+      Serial.flush();
 #endif
       _parse_stage = PARSE_OK;
       return true;
     }
 #ifdef GSM_TASKS_DEBUG
     Serial.println("GSMTask: No SMS send process was found.");
+    Serial.flush();
 #endif
     return false;
   }
@@ -296,6 +305,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     {
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: End of command(OK) was found");
+      Serial.flush();
 #endif
       _completed = true;
       _error = false;
@@ -306,6 +316,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     {
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: End of command(ERROR) was found");
+      Serial.flush();
 #endif
       _completed = true;
       _error = true;
@@ -313,6 +324,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
     }    
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: Not an end of command");
+      Serial.flush();
 #endif
       return false;
   }
@@ -320,6 +332,7 @@ bool GSMTask::parseAnswer(byte * _buf, size_t size)
   default:
 #ifdef GSM_TASKS_DEBUG
       Serial.println("GSMTask: Unknown parse stage");
+      Serial.flush();
 #endif
     return false;
   }

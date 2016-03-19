@@ -17,7 +17,8 @@ public:
   //temp function to save phone number to EEPROM
   void saveTestPhone();
   void parseGSMTaskResults(const GSMTask & task); 
-  void parseSMS(const String & phone, const String & sms);
+  void parseSMS(const char * phone, const String & sms);
+  void printStackHeap();
 private:
   SHModem sh;
   GSMModule gsm;

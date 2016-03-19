@@ -31,7 +31,7 @@ ArduinoFortress::ArduinoFortress():
     EEPROMManager::PHONE_ELEMENT_T phone;
     EEPROMManager::load(EEPROMManager::EEPROM_PHONE_PART,i,(unsigned char *)&phone);
     if (phone.number[0] != 0xff && phone.number[0] != 0x00)
-      gsm.setPhone(i,String((const char *)phone.number));
+      gsm.setPhone(i,phone.number);
   } 
   //load sensors info from eeprom
   for (unsigned char i = 0; i < SENSOR_COUNT; i++)
@@ -42,12 +42,10 @@ ArduinoFortress::ArduinoFortress():
     switch (raw_sensor.type)
     {
     case Sensor::ANALOG_SENSOR:
-
-      Serial.println("AnalogSensor was loaded");
+      Serial.println("AnalogSensor in cell ");
+      Serial.println(i);
       Serial.flush();     
       sensor[i] = new AnalogSensor(&raw_sensor);
-      Serial.println("AnalogSensor was created");
-      Serial.flush();  
       break;
     case Sensor::DIGITAL_SENSOR:
     case Sensor::I2C_SENSOR:
@@ -64,7 +62,8 @@ ArduinoFortress::ArduinoFortress():
       }
       else
       {
-        Serial.println("No sensor in cell");
+        Serial.print("No sensor in cell ");
+        Serial.println(i);
         Serial.flush();
         sensor[i] = NULL;//no sensor in eeprom cell
       }
@@ -90,11 +89,12 @@ ArduinoFortress::ArduinoFortress():
 
 void ArduinoFortress::proc()
 {
-  //for (int i = 0; i < SENSOR_COUNT; i++)
-  //  if (sensor[i])
-  //    sensor[i] -> proc();
-  gsm.proc(); 
-  if (gsm.currentTask().isCompleted())
+  for (int i = 0; i < SENSOR_COUNT; i++)
+    if (sensor[i])
+      sensor[i] -> proc();
+  gsm.proc();
+  GSMTask task = gsm.currentTask(); 
+  if (task.isCompleted())
   {
     parseGSMTaskResults(gsm.currentTask());     
     gsm.clearCurrentTask();
@@ -116,7 +116,7 @@ void ArduinoFortress::parseGSMTaskResults(const GSMTask & task)
   switch (task.task())
   {
   case GSMTask::GSM_TASK_READ_SMS:
-    parseSMS(task.resultPhone(),task.resultText());
+    parseSMS(task.resultPhone().c_str(),task.resultText());
     break;
   default:
     break;
@@ -124,11 +124,12 @@ void ArduinoFortress::parseGSMTaskResults(const GSMTask & task)
 }
 
 
-void ArduinoFortress::parseSMS(const String & phone, const String & sms)
+void ArduinoFortress::parseSMS(const char * phone, const String & sms)
 {
   GSMTask::GSM_SEND_SMS_T param;
+  param.text.reserve(128);
   String sms_text = sms;
-  param.phone = phone;
+  memcpy(param.phone,phone,sizeof(param.phone));
   sms_text.toLowerCase();
   //removing end symbols
   while (sms_text.charAt(sms_text.length() - 1) == '\n' || sms_text.charAt(sms_text.length() - 1) == '\r')
@@ -166,6 +167,7 @@ void ArduinoFortress::parseSMS(const String & phone, const String & sms)
         {
            param.text = "listen ok"; 
            gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+           
            return;  
         }      
        param.text = "listen fullmemory error";
@@ -192,12 +194,11 @@ void ArduinoFortress::parseSMS(const String & phone, const String & sms)
   {
     if (sms_part[1] == "all")
     {
-      //param.text += "Free mem " + String(freeRam());
-      //for (int i = 0; i < SENSOR_COUNT; i++)
-      //  if (sensor[i])
-          param.text += String(", ") + sensor[0] -> report();
-      Serial.println(param.text);
-      //gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+      param.text += "Free mem " + String(freeRam());
+      for (int i = 0; i < SENSOR_COUNT; i++)
+        if (sensor[i])
+          param.text += String(", ") + sensor[i] -> report();
+      gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
       return;
     }
     return;
@@ -218,6 +219,18 @@ int ArduinoFortress::freeRam()
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 
+void ArduinoFortress::printStackHeap()
+{
+    char * testVal;
+    testVal = new char[100];
+    Serial.print("Stack ");
+    Serial.println((int)&testVal);
+    Serial.print("Heap ");
+    Serial.println((int)testVal);
+    Serial.flush();
+    delete[] testVal;
+}
+
 
 void ArduinoFortress::saveTestPhone()
 {
@@ -225,5 +238,6 @@ void ArduinoFortress::saveTestPhone()
   memset(&phone,0,sizeof(phone));
   const char ph[] = "+375290000000";
   memcpy(phone.number,ph,sizeof(ph));
-  EEPROMManager::save(EEPROMManager::EEPROM_PHONE_PART,0,(unsigned char *)&phone);
+  //memset(phone.number,0,sizeof(phone.number));
+  EEPROMManager::save(EEPROMManager::EEPROM_PHONE_PART,1,(unsigned char *)&phone);
 }

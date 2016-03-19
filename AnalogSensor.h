@@ -4,7 +4,7 @@
 class AnalogSensor : public Sensor
 {
 public:
-  AnalogSensor(const String & name, unsigned char pin, unsigned short compareValue, bool lowOn);
+  AnalogSensor(const char * name, unsigned char pin, unsigned short compareValue, bool lowOn);
   AnalogSensor(EEPROMManager::SENSOR_ELEMENT_T * data);
   bool proc();
   //setup sensor from raw data

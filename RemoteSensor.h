@@ -4,7 +4,7 @@
 class RemoteSensor : public Sensor
 {
 public:
-  RemoteSensor(const String & name, unsigned int id);
+  RemoteSensor(const char * name, unsigned int id);
   RemoteSensor(EEPROMManager::SENSOR_ELEMENT_T * data);
   bool proc();
   //setup sensor from raw data

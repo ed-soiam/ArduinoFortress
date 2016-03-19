@@ -7,3 +7,9 @@ alarm(false)
   
 }
 
+
+void Sensor::setName(const char * pName)
+{
+  strncpy (_name, pName, sizeof(_name));
+}
+

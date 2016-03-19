@@ -7,16 +7,18 @@ GSMModule::GSMModule(HardwareSerial &serial) :
   _r_flag(false)
 {
   clearTasks();
+  memset(_phone_numbers,0,sizeof(_phone_numbers));
 }
 
 
-void GSMModule::setPhone(unsigned char element, const String & phone_number)
+void GSMModule::setPhone(unsigned char element, const char * phone_number)
 {
   if (element >= PHONE_NUMBER_COUNT)
     return;
-  _phone_numbers[element] = phone_number;
+  strncpy(&_phone_numbers[element * PHONE_NUMBER_LENGTH], phone_number, PHONE_NUMBER_LENGTH);
+  _phone_numbers[element * PHONE_NUMBER_LENGTH + PHONE_NUMBER_LENGTH - 1] = 0;//end of string
   Serial.write("GSM: register phone ");
-  Serial.write(phone_number.c_str());
+  Serial.write(phone_number,PHONE_NUMBER_LENGTH);
   Serial.write("\n\r");
   Serial.flush();
 }
@@ -97,7 +99,7 @@ void GSMModule::proc()
             {//check phone number of income sms. if it isn't at our white list, delete this task
               int i;
               for (i = 0; i < PHONE_NUMBER_COUNT; i++)
-                if (_phone_numbers[i].length() && _phone_numbers[i] == task.resultPhone())
+                if (String(&_phone_numbers[i * PHONE_NUMBER_LENGTH]).length() && String(&_phone_numbers[i * PHONE_NUMBER_LENGTH]) == task.resultPhone())
                   break;
               if (i == PHONE_NUMBER_COUNT)
               {
@@ -203,14 +205,14 @@ bool GSMModule::sendSMS(const String & text)
   param.text = text;
     
   for (int i = 0; i < PHONE_NUMBER_COUNT; i++)
-    if (_phone_numbers[i].length())
+    if (String(&_phone_numbers[i * PHONE_NUMBER_COUNT]).length())
     {
 #ifdef GSM_MODULE_DEBUG
       Serial.print("GSM: Sending sms to ");
-      Serial.println(_phone_numbers[i].c_str());
+      Serial.println(&_phone_numbers[i * PHONE_NUMBER_COUNT]);
       Serial.flush();
 #endif
-      param.phone = _phone_numbers[i];
+      memcpy(param.phone,&_phone_numbers[i * PHONE_NUMBER_COUNT],sizeof(param.phone));
       if (!addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param)))
         return false;//no memory in queue
     }

@@ -11,14 +11,13 @@ public:
   typedef struct _phone_element
   {
     unsigned char flags;
-    unsigned char number[20];
+    char number[PHONE_NUMBER_LENGTH];
   } PHONE_ELEMENT_T;
 
   typedef struct _sensor_element
   {
     unsigned char type;
-    unsigned char name[16];
-    unsigned char end_of_str;//0
+    char name[SENSOR_NAME_LENGTH];
     union {
       unsigned char info[8];
       struct {

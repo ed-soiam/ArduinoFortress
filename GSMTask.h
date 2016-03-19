@@ -21,9 +21,9 @@ public:
     GSM_TASK_GET_IMEI//returns resultText()    
   } GSM_TASK_T;
 
-  typedef struct _gsm_send_sms {
-    String phone;
+  typedef struct _gsm_send_sms {    
     String text;
+    char phone[PHONE_NUMBER_LENGTH];
   } GSM_SEND_SMS_T;
 
   typedef struct _gsm_read_sms {

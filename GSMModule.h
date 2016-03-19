@@ -9,7 +9,7 @@ class GSMModule {
 public:
 	GSMModule(HardwareSerial &serial);
 
-  void setPhone(unsigned char element, const String & phone_number);
+  void setPhone(unsigned char element, const char * phone_number);
 	void begin(unsigned long baud);
 	void end();
  
@@ -52,7 +52,7 @@ private:
   bool parseSTD(byte * _buf, size_t size);
   
 	HardwareSerial *_serial;
-  String _phone_numbers[PHONE_NUMBER_COUNT];
+  char _phone_numbers[PHONE_NUMBER_COUNT * PHONE_NUMBER_LENGTH];
 	byte _buf[GSM_BUFFER_SIZE];
 	size_t _buf_size;
 	unsigned long _timeout_ms;

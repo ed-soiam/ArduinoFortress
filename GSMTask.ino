@@ -2,6 +2,8 @@
 
 GSMTask::GSMTask(GSM_TASK_T task,void * data)
 {  
+  _gsm_string.reserve(32);
+  _phone_number.reserve(PHONE_NUMBER_LENGTH);
   _tmp_number = 0;
   _bool_value = false;
   _parse_stage = PARSE_NONE;
@@ -17,6 +19,8 @@ GSMTask::GSMTask(const GSMTask & task)
 
 GSMTask &GSMTask::operator=(const GSMTask & task)
 {
+  this -> _gsm_string.reserve(32);
+  this -> _phone_number.reserve(PHONE_NUMBER_LENGTH);
   this -> _task = task._task;
   this -> _completed = task._completed;
   this -> _error = task._error;

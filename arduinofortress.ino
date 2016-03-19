@@ -22,8 +22,9 @@ void loop()
 ArduinoFortress::ArduinoFortress():
   gsm(Serial1),
   sh(Serial3),
-  sent(false)
+  _listen_mode(false)
 {
+  memset(_listen_phone,0,sizeof(_listen_phone));
   //saveTestPhone();
   //load phone settings from eeprom  
   for (unsigned char i = 0; i < PHONE_NUMBER_COUNT; i++)
@@ -73,7 +74,6 @@ ArduinoFortress::ArduinoFortress():
    
   gsm.begin(115200);
   sh.begin(115200);
-  //msg = NetroMessage::createStd(0x1220,0,0,0); 
   GSMTask task;
   //clearing SIM module memory from all sms
   task = GSMTask(GSMTask::GSM_TASK_DELETE_ALL_SMS,0);
@@ -89,9 +89,12 @@ ArduinoFortress::ArduinoFortress():
 
 void ArduinoFortress::proc()
 {
+  //sensors
   for (int i = 0; i < SENSOR_COUNT; i++)
     if (sensor[i])
       sensor[i] -> proc();
+      
+  //gsm    
   gsm.proc();
   GSMTask task = gsm.currentTask(); 
   if (task.isCompleted())
@@ -99,13 +102,33 @@ void ArduinoFortress::proc()
     parseGSMTaskResults(gsm.currentTask());     
     gsm.clearCurrentTask();
   }
+  
+  //smarthome modem
   sh.proc();
-  /*
-  if (sh.isFree() && next_cmd_time < millis())
+  if (_listen_mode && !sh.isListenMode())
   {
-    sh.sendCommand(*msg);
-    next_cmd_time = millis()  + 5000;
-  }*/
+    GSMTask::GSM_SEND_SMS_T param;
+    param.text.reserve(64);
+    memcpy(param.phone,_listen_phone,sizeof(param.phone));
+    Serial.println(_listen_phone);
+    Serial.flush();
+    _listen_mode = false;
+    if (sh.lastSensorId() == (unsigned long)(-1))
+       param.text = "listen timeout";
+    else
+    {
+      //searching for existing sensors
+      for (int i = 0; i < SENSOR_COUNT; i++)
+        if (sensor[i] && sensor[i] -> sensorType() == Sensor::REMOTE_SENSOR && sensor[i] -> id() == sh.lastSensorId())
+        {
+          param.text = "sensor is registered id: " + String(sensor[i] -> id()) + ", name: " + sensor[i] -> getName();
+          break;
+        }
+      if (!param.text.length())
+        param.text = "sensor was found id: " + String(sh.lastSensorId(),HEX);
+    }
+    gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+  }
 }
 
 
@@ -165,10 +188,16 @@ void ArduinoFortress::parseSMS(const char * phone, const String & sms)
       for (int i = 0; i < SENSOR_COUNT; i++)
         if (!sensor[i])
         {
-           param.text = "listen ok"; 
-           gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
-           
-           return;  
+          if (sh.setListenMode(true))
+          {
+            _listen_mode = true;
+            memcpy(_listen_phone,phone,sizeof(_listen_phone));//saving phone for answer later
+            param.text = "listen ok";
+          }
+          else
+            param.text = "listen modem busy";  
+          gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+          return;  
         }      
        param.text = "listen fullmemory error";
     }

@@ -26,6 +26,8 @@ public:
   virtual String alarmMessage() const = 0;
   //report of current Sensor state(with name)
   virtual String report() const = 0;
+  //get id of sensor
+  virtual unsigned int id() const = 0;
 protected:  
   char _name[SENSOR_NAME_LENGTH];
   SENSOR_T _type;

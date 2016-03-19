@@ -6,8 +6,10 @@ SHModem::SHModem(HardwareSerial &serial) :  _serial(&serial)
   _msg = 0;//pointer to NULL message
   _free = true;
   _error = false;
+  _listening = false;
   clearRX();
   _packages = 0;
+  clearSensorId();
 }
 
 void SHModem::begin(unsigned long baud) 
@@ -98,7 +100,18 @@ void SHModem::stateMachine()
   {
     _free = true;
     _error = true;
+    _listening = false;
   }
+
+  //timeout and timeoverflow protection(100sec)
+  if (_listening && _free)
+  { 
+    if (_listen_timeout < current_time && (current_time - _timeout ) < 100000)
+      _listening = false;
+    else
+      getSensorId();
+  }
+    
 }
 
 
@@ -208,17 +221,6 @@ void SHModem::parseRXCommand()
 #endif
         break;
       }
-
-      /*if (tmpMessage -> stdData() == NetroMessage::INTERFACE_RESULT_PROGRESS_CONST)
-      {
-        _free = true;
-        _error = false;
-        //ask progress again
-        NetroMessage * get_stat_msg = NetroMessage::createrStd();
-        sendCommand(*get_stat_msg, 500);
-        delete get_stat_msg;
-        return;
-      }*/
     }
 #ifdef SH_TRANSPORT_DEBUG
     Serial.println("SH: Incorrect standard answer");
@@ -229,6 +231,12 @@ void SHModem::parseRXCommand()
     {
       _free = true;
       _error = false;
+      if ((tmpMessage -> command() >> 8) == NetroMessage::INTERFACE_STD_PARAM_MODEMID)
+      {//parsing caught sensor
+        _sensor_id = tmpMessage -> stdData() | (((unsigned long)tmpMessage -> flags()) << 16);
+        if (_sensor_id != (unsigned int)(-1))
+          _listening = false;
+      }
 #ifdef SH_TRANSPORT_DEBUG
     Serial.println("SH: correct request answer");
 #endif
@@ -242,5 +250,29 @@ void SHModem::parseRXCommand()
     break;  
   }
   delete tmpMessage;
+}
+
+
+bool SHModem::setListenMode(bool value)
+{
+  if (!_free)
+    return false;
+  if (_listening == value)//no need to send any commands
+    return true;
+  NetroMessage * msg = NetroMessage::createStd(NetroMessage::INTERFACE_CONTROL_MODEM_CMD | (((unsigned short)NetroMessage::INTERFACE_MODEM_SET_MODE_CMD) << 8),0,value ? 2 : 1,0);
+  sendCommand(*msg);
+  delete msg;
+  _listening = value;
+  if (_listening)
+    _listen_timeout = millis() + 120000;//2 minutes timeout
+  return true;
+}
+
+
+void SHModem::getSensorId()
+{
+  NetroMessage * msg = NetroMessage::createStd(NetroMessage::INTERFACE_REQUEST_CMD | (((unsigned short)NetroMessage::INTERFACE_STD_PARAM_MODEMID) << 8),0,0,1);
+  sendCommand(*msg);
+  delete msg;
 }
 

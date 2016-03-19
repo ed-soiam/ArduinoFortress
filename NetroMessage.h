@@ -90,7 +90,7 @@ public:
       INTERFACE_STD_PARAM_LASTSAVED = 19, //запрос номера в таблице сохраненного устройства в ежиме инициализации модема
       INTERFACE_STD_PARAM_BTNSETUP = 20,
       INTERFACE_STD_PARAM_MODEMFUNCS = 21, //запрос функций модема и поддерживаемых модемом протоколов
-      INTERFACE_STD_PARAM_MODEMID = 22 //id модема 
+      INTERFACE_STD_PARAM_MODEMID = 22 //id модема/сенсора 
   } INTERFACE_STD_PARAM_T;
   
   // результат полученной команды USART, который передается в ответе

@@ -23,8 +23,8 @@ private:
   SHModem sh;
   GSMModule gsm;
   Sensor * sensor[SENSOR_COUNT];
-  NetroMessage * msg;
-  bool sent;
+  bool _listen_mode;//listen to sensors mode;
+  char _listen_phone[PHONE_NUMBER_LENGTH];//phone, which set listen to sensors mode 
 };
 #endif
 

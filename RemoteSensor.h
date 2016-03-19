@@ -4,7 +4,7 @@
 class RemoteSensor : public Sensor
 {
 public:
-  RemoteSensor(const char * name, unsigned int id);
+  RemoteSensor(const char * name, unsigned long id);
   RemoteSensor(EEPROMManager::SENSOR_ELEMENT_T * data);
   bool proc();
   //setup sensor from raw data
@@ -12,9 +12,9 @@ public:
   virtual bool toEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data);
   virtual String alarmMessage() const;
   virtual String report() const;
-  virtual unsigned int id() const {return _id;}
+  virtual unsigned long id() const {return _id;}
 private:
-  unsigned int _id;
+  unsigned long _id;
   bool value; 
 };
 #endif

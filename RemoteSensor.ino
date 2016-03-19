@@ -1,7 +1,7 @@
 #include "RemoteSensor.h"
 
 #include "AnalogSensor.h"
-RemoteSensor::RemoteSensor(const char * name, unsigned int id) :
+RemoteSensor::RemoteSensor(const char * name, unsigned long id) :
 Sensor(REMOTE_SENSOR)
 {
   Serial.println("Remote sensor object was created");

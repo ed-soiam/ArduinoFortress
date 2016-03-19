@@ -16,14 +16,14 @@ public:
   //returns false if port is busy or empty message
   bool sendCommand(const NetroMessage & msg, unsigned short timeot_ms = 200);
   //last caught sensor id in listen to new sensors mode
-  unsigned int lastSensorId() const{return _sensor_id;} 
+  unsigned long lastSensorId() const{return _sensor_id;} 
   //last sensor id, which sent us an alarm
-  unsigned int lastAlarmId() const{return (unsigned int)(-1);} 
+  unsigned long lastAlarmId() const{return (unsigned long)(-1);} 
   
   bool setListenMode(bool value);
   bool isListenMode() const {return _listening;}
 private:
-  void clearSensorId(){_sensor_id = (unsigned int)(-1);}
+  void clearSensorId(){_sensor_id = (unsigned long)(-1);}
   void getSensorId();
   void clearRX();
   //logic modem machine
@@ -41,8 +41,11 @@ private:
   unsigned char _rcv_buf[INTERFACE_EXT_PACKET_LENGTH];
   bool _staff;
   unsigned char _rcv_byte_num;
-  unsigned int _sensor_id;
+  
+  //for listening mode
+  unsigned long _sensor_id;
   bool _listening;
-  unsigned long _listen_timeout; 
+  unsigned long _listen_timeout;
+  unsigned long _last_command_time; 
 };
 #endif

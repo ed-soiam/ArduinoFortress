@@ -106,10 +106,11 @@ void SHModem::stateMachine()
   //timeout and timeoverflow protection(100sec)
   if (_listening && _free)
   { 
-    if (_listen_timeout < current_time && (current_time - _timeout ) < 100000)
+    if (_listen_timeout < current_time && (current_time - _listen_timeout ) < 100000)
       _listening = false;
     else
-      getSensorId();
+      if (_last_command_time + 500 < current_time && (current_time - _last_command_time ) < 100000)//if enough time from last command      
+        getSensorId();
   }
     
 }
@@ -130,6 +131,7 @@ bool SHModem::sendCommand(const NetroMessage & msg, unsigned short timeot_ms)
 #ifdef SH_TRANSPORT_DEBUG
   Serial.print("SH OUT:");
 #endif
+  _last_command_time = millis();
   //stuffing data and send by one after other bytes
   unsigned char * buf = _msg -> buffer();
   for (unsigned char r_pointer = 0; r_pointer < _msg -> size(); r_pointer++)
@@ -150,7 +152,9 @@ bool SHModem::sendCommand(const NetroMessage & msg, unsigned short timeot_ms)
     _serial -> write(buf[r_pointer]);
     
   }
+#ifdef SH_TRANSPORT_DEBUG
   Serial.print("\n\r"); 
+#endif
   return true;
 }
 
@@ -234,7 +238,7 @@ void SHModem::parseRXCommand()
       if ((tmpMessage -> command() >> 8) == NetroMessage::INTERFACE_STD_PARAM_MODEMID)
       {//parsing caught sensor
         _sensor_id = tmpMessage -> stdData() | (((unsigned long)tmpMessage -> flags()) << 16);
-        if (_sensor_id != (unsigned int)(-1))
+        if (_sensor_id != (unsigned long)(-1))
           _listening = false;
       }
 #ifdef SH_TRANSPORT_DEBUG
@@ -264,7 +268,7 @@ bool SHModem::setListenMode(bool value)
   delete msg;
   _listening = value;
   if (_listening)
-    _listen_timeout = millis() + 120000;//2 minutes timeout
+    _listen_timeout = millis() + 60000;//1 minute timeout
   return true;
 }
 

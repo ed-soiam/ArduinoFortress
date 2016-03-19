@@ -26,7 +26,7 @@ public:
         unsigned char lowOn;
         unsigned short compare;
       } analog_sensor;      
-      unsigned int id;
+      unsigned long id;
     };
   } SENSOR_ELEMENT_T;
   

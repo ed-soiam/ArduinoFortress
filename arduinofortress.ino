@@ -37,21 +37,27 @@ ArduinoFortress::ArduinoFortress():
   //load sensors info from eeprom
   for (unsigned char i = 0; i < SENSOR_COUNT; i++)
   {
+    String load_report_str;
     EEPROMManager::SENSOR_ELEMENT_T raw_sensor;
     EEPROMManager::load(EEPROMManager::EEPROM_SENSOR_PART,i,(unsigned char *)&raw_sensor);
     //factory needed :)
     switch (raw_sensor.type)
     {
     case Sensor::ANALOG_SENSOR:
-      Serial.println("AnalogSensor in cell ");
-      Serial.println(i);
-      Serial.flush();     
       sensor[i] = new AnalogSensor(&raw_sensor);
+      load_report_str = String("AnalogSensor '") + sensor[i] -> getName() + String("' in cell ") + String(i);
+      Serial.println(load_report_str);
+      Serial.flush();           
       break;
     case Sensor::DIGITAL_SENSOR:
     case Sensor::I2C_SENSOR:
-    case Sensor::REMOTE_SENSOR:
       sensor[i] = NULL;
+      break;
+    case Sensor::REMOTE_SENSOR:
+      sensor[i] = new RemoteSensor(&raw_sensor);
+      load_report_str = String("RemoteSensor '") + sensor[i] -> getName() + String("' in cell ") + String(i);
+      Serial.println(load_report_str);
+      Serial.flush();  
       break;
     default:
       if (i == 0)//create analog voltage sensor if no sensor is presented in cell 0
@@ -121,7 +127,7 @@ void ArduinoFortress::proc()
       for (int i = 0; i < SENSOR_COUNT; i++)
         if (sensor[i] && sensor[i] -> sensorType() == Sensor::REMOTE_SENSOR && sensor[i] -> id() == sh.lastSensorId())
         {
-          param.text = "sensor is registered id: " + String(sensor[i] -> id()) + ", name: " + sensor[i] -> getName();
+          param.text = "sensor has been already saved, id: " + String(sensor[i] -> id(),HEX) + ", name: " + sensor[i] -> getName();
           break;
         }
       if (!param.text.length())
@@ -158,7 +164,7 @@ void ArduinoFortress::parseSMS(const char * phone, const String & sms)
   while (sms_text.charAt(sms_text.length() - 1) == '\n' || sms_text.charAt(sms_text.length() - 1) == '\r')
     sms_text.remove(sms_text.length() - 1);
   
-  String sms_part[8];//cmd,subcmd and 6 parameters
+  String sms_part[6];//cmd,subcmd and 6 parameters
   int start_substring = 0;
   bool any_symbols = false;
   int part_number = 0;
@@ -169,7 +175,7 @@ void ArduinoFortress::parseSMS(const char * phone, const String & sms)
       {
         sms_part[part_number] = sms_text.substring(start_substring,j);
         part_number++;
-        if (part_number >= 8)
+        if (part_number >= 6)
           break;//too many words
       }
       start_substring = j + 1;
@@ -185,6 +191,13 @@ void ArduinoFortress::parseSMS(const char * phone, const String & sms)
   {
     if (sms_part[1] == "listen")
     {
+      if (_listen_mode)
+      {
+        param.text = "listen already in progress";
+        gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+        return;   
+      }
+        
       for (int i = 0; i < SENSOR_COUNT; i++)
         if (!sensor[i])
         {
@@ -200,6 +213,42 @@ void ArduinoFortress::parseSMS(const char * phone, const String & sms)
           return;  
         }      
        param.text = "listen fullmemory error";
+    }
+    if (sms_part[1] == "save")
+    {
+      EEPROMManager::SENSOR_ELEMENT_T raw_sensor;
+      if (sms_part[2] == "last")
+      {
+        if (sh.lastSensorId() == (unsigned long)(-1))
+        {
+          param.text = "sensor invalid id error";
+          gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+          return;
+        }
+        //check for already saved sensor
+        for (int i = 0; i < SENSOR_COUNT; i++)
+          if (sensor[i] && sensor[i] -> sensorType() == Sensor::REMOTE_SENSOR && sensor[i] -> id() == sh.lastSensorId())
+          {
+            param.text = "sensor has been already saved id: " + String(sensor[i] -> id(),HEX) + ", name: " + sensor[i] -> getName();
+            gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+            return;
+          }
+        for (int i = 0; i < SENSOR_COUNT; i++)
+          if (!sensor[i])
+          {
+            Serial.print("Creating new Remote sensor ");
+            Serial.println(sms_part[3]);
+            sensor[i] = new RemoteSensor(sms_part[3].c_str(),sh.lastSensorId());
+            sensor[i] -> toEEPROMData(&raw_sensor);
+            EEPROMManager::save(EEPROMManager::EEPROM_SENSOR_PART,i,(unsigned char *)&raw_sensor);
+            param.text = "sensor saved ok";
+            gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+            return;
+          }
+        param.text = "save fullmemory error";
+        gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS,&param));
+        return;
+      }
     }
     else
       param.text = "listen subcommand error";

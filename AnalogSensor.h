@@ -12,7 +12,7 @@ public:
   virtual bool toEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data);
   virtual String alarmMessage() const;
   virtual String report() const;
-  virtual unsigned int id() const {return _pin;}
+  virtual unsigned long id() const {return _pin;}
 private:
   unsigned char _pin; 
   unsigned short _compare;

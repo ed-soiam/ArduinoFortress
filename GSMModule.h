@@ -17,7 +17,7 @@ public:
   bool addTask(const GSMTask & task);
   
   //get current executing GSM task
-  GSMTask currentTask() const {return task;}
+  const GSMTask & currentTask() const {return task;}
   
 	//delete current task and execute next if exists
 	void clearCurrentTask();

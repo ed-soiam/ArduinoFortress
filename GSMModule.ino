@@ -121,6 +121,15 @@ void GSMModule::proc()
         _r_flag = true;
     _buf_size++;
   }
+  unsigned long current_time_ms = millis();
+  if (task.task() != GSMTask::GSM_TASK_NONE && (current_time_ms <= _rcv_timeout && (current_time_ms - _rcv_timeout ) < 100000))
+  {
+    task.setCompleted(true);
+    task.setError(true);
+#ifdef GSM_MODULE_DEBUG
+    Serial.println("GSM: gsm task execution timeout. No data received from gsm modem");
+#endif
+  }
   
   //if no task is active, get new one from queue
   if (task.task() == GSMTask::GSM_TASK_NONE && task_queue.read_pointer != task_queue.write_pointer)
@@ -130,6 +139,7 @@ void GSMModule::proc()
 #ifdef GSM_MODULE_DEBUG
     Serial.println("GSM: starting new gsm task...");
     Serial.flush();
+    _rcv_timeout = millis() + _timeout_ms;
 #endif
     send(task.gsmString().c_str());
   }

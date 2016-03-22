@@ -1,4 +1,6 @@
+#if defined (__AVR_ATmega128__)
 #include <EEPROM.h>
+#endif
 #include "EEPROMManager.h"
 EEPROMManager::EEPROMManager()
 {
@@ -8,6 +10,7 @@ EEPROMManager::EEPROMManager()
 
 bool EEPROMManager::load(EEPROM_PART_T part, unsigned char element,unsigned char * pBuf)
 {
+#if defined (__AVR_ATmega128__)
   switch (part)
   {
   case EEPROM_PHONE_PART:
@@ -26,11 +29,15 @@ bool EEPROMManager::load(EEPROM_PART_T part, unsigned char element,unsigned char
     return false;
   }
   return true;
+#else
+  return false;
+#endif
 }
 
 
 bool EEPROMManager::save(EEPROM_PART_T part, unsigned char element,unsigned char  * pBuf)
 {
+#if defined (__AVR_ATmega128__)
   switch (part)
   {
   case EEPROM_PHONE_PART:
@@ -50,6 +57,9 @@ bool EEPROMManager::save(EEPROM_PART_T part, unsigned char element,unsigned char
     return false;
   }
   return true;
+#else
+  return false;
+#endif
 }
 
 

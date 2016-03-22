@@ -136,14 +136,18 @@ bool SHModem::sendCommand(const NetroMessage & msg, unsigned short timeot_ms)
   unsigned char * buf = _msg -> buffer();
   for (unsigned char r_pointer = 0; r_pointer < _msg -> size(); r_pointer++)
   {
+#if defined (__AVR_ATmega128__)
     while (!_serial -> availableForWrite());
+#endif
     if ((buf[r_pointer] == INTERFACE_START_DATA && r_pointer) || buf[r_pointer] == INTERFACE_STAF_DATA)
     {
 #ifdef SH_TRANSPORT_DEBUG
       Serial.print(INTERFACE_STAF_DATA,HEX);
 #endif
       _serial -> write(INTERFACE_STAF_DATA);
+#if defined (__AVR_ATmega128__)
       while (!_serial -> availableForWrite());
+#endif
     }
 #ifdef SH_TRANSPORT_DEBUG
     Serial.print(buf[r_pointer],HEX);

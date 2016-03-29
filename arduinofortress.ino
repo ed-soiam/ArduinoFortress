@@ -134,6 +134,15 @@ void ArduinoFortress::proc()
     }
     gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS, &param));
   }
+  unsigned long id = sh.lastAlarmId();
+  if (id != (unsigned long)(-1))
+    alarm(id);
+}
+
+
+void ArduinoFortress::alarm(unsigned long id)
+{
+  Serial.println(id,HEX);
 }
 
 

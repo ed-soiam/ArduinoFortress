@@ -19,6 +19,7 @@ public:
   void parseGSMTaskResults(const GSMTask & task); 
   void parseSMS(const char * phone, const String & sms);
   void printStackHeap();
+  void alarm(unsigned long id);
 private:
   SHModem sh;
   GSMModule gsm;

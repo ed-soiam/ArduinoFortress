@@ -18,7 +18,7 @@ public:
   //last caught sensor id in listen to new sensors mode
   unsigned long lastSensorId() const{return _sensor_id;} 
   //last sensor id, which sent us an alarm
-  unsigned long lastAlarmId() const{return (unsigned long)(-1);} 
+  unsigned long lastAlarmId();
   
   bool setListenMode(bool value);
   bool isListenMode() const {return _listening;}
@@ -47,5 +47,8 @@ private:
   bool _listening;
   unsigned long _listen_timeout;
   unsigned long _last_command_time; 
+
+  //for alarm
+  unsigned long _last_alarm_id;
 };
 #endif

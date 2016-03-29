@@ -15,6 +15,7 @@ SHModem::SHModem(HardwareSerial &serial) :  _serial(&serial)
 void SHModem::begin(unsigned long baud) 
 {
   _serial -> begin(baud);
+  _last_alarm_id = (unsigned long)(-1);
 }
 
 void SHModem::clearRX()
@@ -193,8 +194,12 @@ void SHModem::parseRXCommand()
   //if message from sensor
   if (tmpMessage -> isExt() && tmpMessage -> command() == NetroMessage::INTERFACE_RESULT_BUVO_CMD)
   {
-      //todo: parse sensor command
+      unsigned char ext_data[10];
+      unsigned char len = sizeof(ext_data);
+      memset(ext_data,0,len);
+      tmpMessage -> extData(ext_data, &len);
       delete tmpMessage;
+      memcpy(&_last_alarm_id,ext_data,sizeof(_last_alarm_id));
       return;
   }
   
@@ -283,4 +288,11 @@ void SHModem::getSensorId()
   sendCommand(*msg);
   delete msg;
 }
+
+unsigned long SHModem::lastAlarmId() 
+{
+  unsigned long alarm_id = _last_alarm_id;
+  _last_alarm_id = (unsigned long)(-1);
+  return alarm_id;
+  } 
 

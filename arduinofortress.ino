@@ -22,7 +22,9 @@ void loop()
 ArduinoFortress::ArduinoFortress():
   gsm(Serial1),
   sh(Serial3),
-  _listen_mode(false)
+  _listen_mode(false),
+  _last_alarm_sms_time(0),
+  _alarm_sms_frequency(0) 
 {
   memset(_listen_phone, 0, sizeof(_listen_phone));
   //saveTestPhone();
@@ -30,7 +32,8 @@ ArduinoFortress::ArduinoFortress():
   for (unsigned char i = 0; i < PHONE_NUMBER_COUNT; i++)
   {
     EEPROMManager::PHONE_ELEMENT_T phone;
-    EEPROMManager::load(EEPROMManager::EEPROM_PHONE_PART, i, (unsigned char *)&phone);
+    if (!EEPROMManager::load(EEPROMManager::EEPROM_PHONE_PART, i, (unsigned char *)&phone))
+      Serial.println("No EEPROM was found to load from");
     if (phone.number[0] != 0xff && phone.number[0] != 0x00)
       gsm.setPhone(i, phone.number);
   }
@@ -95,10 +98,49 @@ ArduinoFortress::ArduinoFortress():
 
 void ArduinoFortress::proc()
 {
+  bool alarm = false;
   //sensors
   for (int i = 0; i < SENSOR_COUNT; i++)
     if (sensor[i])
-      sensor[i] -> proc();
+      alarm |= sensor[i] -> proc();
+      
+  //checking possibility of alarm sms    
+  unsigned long delta_time = 0;
+  unsigned long current_time = millis();
+  switch(_alarm_sms_frequency)
+  {
+  case 0: break;
+  case 1: delta_time = 20000;break;//20 sec
+  case 2: delta_time = 60000;break;//1 min
+  case 3: delta_time = 120000;break;//2 min
+  case 4: delta_time = 600000;break;//10 min
+  case 5: delta_time = 600000 * 6;break;//1 hour
+  case 6: delta_time = 600000 * 6 * 6;break;//6 hour
+  case 7: delta_time = 600000 * 6 * 24;break;//24 hour
+  }
+  
+  if ((_last_alarm_sms_time + delta_time <=  current_time) && (current_time - (_last_alarm_sms_time + delta_time) < 100000))
+  {
+    if (alarm) 
+    {
+      if (_alarm_sms_frequency < 7)
+        _alarm_sms_frequency += 1;//sms frequency variable increase to increase peiod of sms send
+      String sms;
+      //send alarm sms 
+      sms.reserve(140);
+      for (int i = 0; i < SENSOR_COUNT; i++)
+        if (sensor[i] && sensor[i] -> isAlarm())
+        {
+          if (sms.length())
+            sms.concat(", ");            
+          sms.concat(sensor[i] -> alarmMessage());
+        }
+        gsm.sendSMS(sms); 
+    }
+    else
+      _alarm_sms_frequency = 0;//frequency reset after long time of "no alarm"   
+  }
+  
 
   //gsm
   gsm.proc();
@@ -134,15 +176,20 @@ void ArduinoFortress::proc()
     }
     gsm.addTask(GSMTask(GSMTask::GSM_TASK_SEND_SMS, &param));
   }
+  
   unsigned long id = sh.lastAlarmId();
   if (id != (unsigned long)(-1))
-    alarm(id);
+    this -> alarm(id);
 }
 
 
 void ArduinoFortress::alarm(unsigned long id)
 {
+  Serial.print("Remote alarm ");
   Serial.println(id,HEX);
+  for (int i = 0; i < SENSOR_COUNT; i++)
+    if (sensor[i] && sensor[i] -> sensorType() == Sensor::REMOTE_SENSOR && sensor[i] -> id() == id)
+      sensor[i] -> setAlarm(true);
 }
 
 
@@ -316,10 +363,14 @@ void ArduinoFortress::parseSMS(const char * phone, const String & sms)
   {
     if (sms_part[1] == "all")
     {
-      param.text += "Free mem " + String(freeRam());
+      param.text.concat("Free mem ");
+      param.text.concat(freeRam());
       for (int i = 0; i < SENSOR_COUNT; i++)
         if (sensor[i])
-          param.text += String(", ") + sensor[i] -> report();
+        {
+          param.text.concat(", ");
+          param.text.concat(sensor[i] -> report());
+        }
       break;
     }
     param.text = "report subcommand error";

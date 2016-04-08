@@ -108,7 +108,8 @@ void GSMModule::proc()
                 Serial.println("GSM: sms from non-white phone list. Banned");
                 Serial.flush();
 #endif
-              }             
+              } 
+              addTask(GSMTask(GSMTask::GSM_TASK_DELETE_READ_SMS, 0));            
             }
           }
       _buf_size = 0;

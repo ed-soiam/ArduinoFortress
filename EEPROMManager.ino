@@ -1,7 +1,9 @@
+#include <avr/io.h>
+#include "EEPROMManager.h"
 #if defined (__AVR_ATmega128__)
 #include <EEPROM.h>
 #endif
-#include "EEPROMManager.h"
+
 EEPROMManager::EEPROMManager()
 {
   

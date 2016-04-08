@@ -21,9 +21,9 @@ public:
   virtual bool fromEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data) = 0;  
   virtual bool toEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data) = 0;
   
-  virtual bool isAlarm() const {return alarm;};
-  virtual void setAlarm(bool value) {this -> alarm = alarm ? 1 : 0;}
-  virtual String alarmMessage() const = 0;
+  virtual bool isAlarm() const {return _alarm;}
+  virtual void setAlarm(bool value) {this -> _alarm = value ? 1 : 0;}
+  virtual String alarmMessage() = 0;
   //report of current Sensor state(with name)
   virtual String report() const = 0;
   //get id of sensor
@@ -31,6 +31,6 @@ public:
 protected:  
   char _name[SENSOR_NAME_LENGTH];
   SENSOR_T _type;
-  unsigned char alarm;
+  unsigned char _alarm;//activation of alarm
 };
 #endif

@@ -25,7 +25,9 @@ private:
   GSMModule gsm;
   Sensor * sensor[SENSOR_COUNT];
   bool _listen_mode;//listen to sensors mode;
-  char _listen_phone[PHONE_NUMBER_LENGTH];//phone, which set listen to sensors mode 
+  char _listen_phone[PHONE_NUMBER_LENGTH];//phone, which set listen to sensors mode
+  unsigned long _last_alarm_sms_time;
+  unsigned char _alarm_sms_frequency; 
 };
 #endif
 

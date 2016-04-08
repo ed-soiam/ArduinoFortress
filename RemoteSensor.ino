@@ -17,19 +17,27 @@ Sensor(REMOTE_SENSOR)
 
 bool RemoteSensor::proc()
 {
-  return false;
+  return isAlarm();
 }
 
 
-String RemoteSensor::alarmMessage() const
+String RemoteSensor::alarmMessage()
 {
-  return String();
+  if (!isAlarm())
+    return String();
+  setAlarm(false);
+  return report();
 }
 
 
 String RemoteSensor::report() const
 {
-  return getName() + ' ' + String(value ? "on" : "off");
+  String s;
+  s.reserve(20);
+  s = getName();
+  s.concat(" ");
+  s.concat(isAlarm() ? "1" : "0");
+  return s;
 }
 
 

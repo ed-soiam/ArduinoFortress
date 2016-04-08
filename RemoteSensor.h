@@ -10,7 +10,7 @@ public:
   //setup sensor from raw data
   virtual bool fromEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data);
   virtual bool toEEPROMData(EEPROMManager::SENSOR_ELEMENT_T * data);
-  virtual String alarmMessage() const;
+  virtual String alarmMessage();
   virtual String report() const;
   virtual unsigned long id() const {return _id;}
 private:

@@ -8,4 +8,6 @@
 #define SENSOR_COUNT 12
 #define SENSOR_NAME_LENGTH 16
 #define PHONE_NUMBER_LENGTH 20
+#define RESIST_DIVIDER 4.82
+#define __AVR_ATmega128__
 #endif

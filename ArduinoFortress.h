@@ -5,7 +5,7 @@
 #include "GSMModule.h"
 #include "SHModem.h"
 #include "EEPROMManager.h"
-
+#include "AlarmSystem.h"
 class ArduinoFortress
 {
 public:
@@ -24,10 +24,9 @@ private:
   SHModem sh;
   GSMModule gsm;
   Sensor * sensor[SENSOR_COUNT];
+  AlarmSystem * _alarm_sys;
   bool _listen_mode;//listen to sensors mode;
   char _listen_phone[PHONE_NUMBER_LENGTH];//phone, which set listen to sensors mode
-  unsigned long _last_alarm_sms_time;
-  unsigned char _alarm_sms_frequency; 
 };
 #endif
 

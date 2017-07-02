@@ -22,9 +22,7 @@ void loop()
 ArduinoFortress::ArduinoFortress():
   gsm(Serial1),
   sh(Serial3),
-  _listen_mode(false),
-  _last_alarm_sms_time(0),
-  _alarm_sms_frequency(0) 
+  _listen_mode(false)
 {
   memset(_listen_phone, 0, sizeof(_listen_phone));
   //saveTestPhone();
@@ -48,6 +46,7 @@ ArduinoFortress::ArduinoFortress():
     {
       case Sensor::ANALOG_SENSOR:
         sensor[i] = new AnalogSensor(&raw_sensor);
+        sensor[i] -> setEnabled(false);
         load_report_str = String("AnalogSensor '") + sensor[i] -> getName() + String("' in cell ") + String(i);
         Serial.println(load_report_str);
         Serial.flush();
@@ -68,6 +67,7 @@ ArduinoFortress::ArduinoFortress():
           Serial.println("Creating new Power voltage sensor");
           sensor[i] = new AnalogSensor("Power voltage", 0, 450, true); //11.2v low on 5v power supply
           sensor[i] -> toEEPROMData(&raw_sensor);
+          sensor[i] -> setEnabled(false);
           EEPROMManager::save(EEPROMManager::EEPROM_SENSOR_PART, i, (unsigned char *)&raw_sensor);
         }
         else
@@ -80,7 +80,7 @@ ArduinoFortress::ArduinoFortress():
         break;
     }
   }
-
+  _alarm_sys = new AlarmSystem(sensor,SENSOR_COUNT);
   gsm.begin(115200);
   sh.begin(115200);
   GSMTask task;
@@ -98,49 +98,10 @@ ArduinoFortress::ArduinoFortress():
 
 void ArduinoFortress::proc()
 {
-  bool alarm = false;
-  //sensors
-  for (int i = 0; i < SENSOR_COUNT; i++)
-    if (sensor[i])
-      alarm |= sensor[i] -> proc();
-      
-  //checking possibility of alarm sms    
-  unsigned long delta_time = 0;
-  unsigned long current_time = millis();
-  switch(_alarm_sms_frequency)
-  {
-  case 0: break;
-  case 1: delta_time = 20000;break;//20 sec
-  case 2: delta_time = 60000;break;//1 min
-  case 3: delta_time = 120000;break;//2 min
-  case 4: delta_time = 600000;break;//10 min
-  case 5: delta_time = 600000 * 6;break;//1 hour
-  case 6: delta_time = 600000 * 6 * 6;break;//6 hour
-  case 7: delta_time = 600000 * 6 * 24;break;//24 hour
-  }
-  
-  if ((_last_alarm_sms_time + delta_time <=  current_time) && (current_time - (_last_alarm_sms_time + delta_time) < 100000))
-  {
-    if (alarm) 
-    {
-      if (_alarm_sms_frequency < 7)
-        _alarm_sms_frequency += 1;//sms frequency variable increase to increase peiod of sms send
-      String sms;
-      //send alarm sms 
-      sms.reserve(140);
-      for (int i = 0; i < SENSOR_COUNT; i++)
-        if (sensor[i] && sensor[i] -> isAlarm())
-        {
-          if (sms.length())
-            sms.concat(", ");            
-          sms.concat(sensor[i] -> alarmMessage());
-        }
-        gsm.sendSMS(sms); 
-    }
-    else
-      _alarm_sms_frequency = 0;//frequency reset after long time of "no alarm"   
-  }
-  
+  //checking alarming system
+  String sms = _alarm_sys -> alarmSMS();
+  if (sms.length())
+    gsm.sendSMS(sms); 
 
   //gsm
   gsm.proc();

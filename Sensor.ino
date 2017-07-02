@@ -2,7 +2,8 @@
 
 Sensor::Sensor(SENSOR_T type):
 _type(type),
-_alarm(false)
+_alarm(false),
+_enabled(true)
 {
 
 }
